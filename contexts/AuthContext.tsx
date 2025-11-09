@@ -22,32 +22,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter()
 
   useEffect(() => {
-    // Check active session
-    checkUser()
+    // Check active session with timeout
+    const timeoutId = setTimeout(() => {
+      if (loading) {
+        console.warn('⚠️ Auth check timeout, setting loading to false')
+        setLoading(false)
+      }
+    }, 5000) // 5 second timeout
+
+    checkUser().finally(() => {
+      clearTimeout(timeoutId)
+    })
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('🔐 Auth state changed:', event)
         if (event === 'SIGNED_IN' && session) {
           await checkUser()
         } else if (event === 'SIGNED_OUT') {
           setUser(null)
+          setLoading(false)
           router.push('/login')
         }
       }
     )
 
     return () => {
+      clearTimeout(timeoutId)
       subscription.unsubscribe()
     }
   }, [])
 
   async function checkUser() {
     try {
+      console.log('🔍 Checking user...')
       const currentUser = await getCurrentUser()
+      console.log('✅ User check complete:', currentUser?.email || 'No user')
       setUser(currentUser)
     } catch (error) {
-      console.error('Error checking user:', error)
+      console.error('❌ Error checking user:', error)
       setUser(null)
     } finally {
       setLoading(false)

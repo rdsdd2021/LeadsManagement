@@ -28,8 +28,12 @@ export function CustomFieldFilters() {
   const loadCustomFields = async () => {
     setLoading(true)
     try {
-      // Get all custom fields from active buckets
-      const { data, error } = await supabase
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Custom fields load timeout')), 3000)
+      })
+
+      const queryPromise = supabase
         .from('custom_fields')
         .select(`
           id,
@@ -43,11 +47,16 @@ export function CustomFieldFilters() {
         .eq('lead_buckets.is_active', true)
         .order('label')
 
+      const { data, error } = await Promise.race([queryPromise, timeoutPromise])
+
       if (!error && data) {
         setCustomFields(data as any)
+      } else if (error) {
+        console.error('⚠️ Error loading custom fields:', error)
       }
     } catch (err) {
-      console.error('Error loading custom fields:', err)
+      console.error('❌ Custom fields load failed:', err)
+      // Continue without custom fields
     } finally {
       setLoading(false)
     }

@@ -71,20 +71,31 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
 }
 
 async function getUserRole(userId: string): Promise<UserRole> {
-  // Check users table for role
-  const { data, error } = await supabase
-    .from('users')
-    .select('role')
-    .eq('id', userId)
-    .single()
+  try {
+    // Add timeout to prevent hanging
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('getUserRole timeout')), 3000)
+    })
 
-  if (error || !data) {
-    console.error('Error fetching user role:', error)
-    // Default role if not found
+    const queryPromise = supabase
+      .from('users')
+      .select('role')
+      .eq('id', userId)
+      .single()
+
+    const { data, error } = await Promise.race([queryPromise, timeoutPromise])
+
+    if (error || !data) {
+      console.error('⚠️ Error fetching user role:', error?.message || 'No data')
+      // Default role if not found
+      return UserRole.VIEWER
+    }
+
+    return data.role as UserRole
+  } catch (err) {
+    console.error('❌ getUserRole failed:', err)
     return UserRole.VIEWER
   }
-
-  return data.role as UserRole
 }
 
 export function hasPermission(userRole: UserRole, permission: string): boolean {
