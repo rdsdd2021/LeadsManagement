@@ -6,11 +6,11 @@ import { useAuth } from '@/contexts/AuthContext'
 import { Header } from '@/components/layout/Header'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { supabase } from '@/lib/supabase'
 import { Plus, Edit, Trash2, Loader2, FolderPlus } from 'lucide-react'
 import type { LeadBucket, CustomField } from '@/types/lead'
+import { CreateBucketDialog } from '@/components/buckets/CreateBucketDialog'
+import { AddFieldDialog } from '@/components/buckets/AddFieldDialog'
 
 export default function ManageBucketsPage() {
   const { user, loading: authLoading } = useAuth()
@@ -19,6 +19,8 @@ export default function ManageBucketsPage() {
   const [selectedBucket, setSelectedBucket] = useState<LeadBucket | null>(null)
   const [customFields, setCustomFields] = useState<CustomField[]>([])
   const [loading, setLoading] = useState(true)
+  const [showCreateBucket, setShowCreateBucket] = useState(false)
+  const [showAddField, setShowAddField] = useState(false)
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -94,7 +96,7 @@ export default function ManageBucketsPage() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle>Lead Buckets</CardTitle>
-                  <Button size="sm">
+                  <Button size="sm" onClick={() => setShowCreateBucket(true)}>
                     <Plus className="h-4 w-4 mr-2" />
                     New Bucket
                   </Button>
@@ -148,7 +150,7 @@ export default function ManageBucketsPage() {
                         Define custom fields that will be available when importing leads to this bucket
                       </CardDescription>
                     </div>
-                    <Button size="sm">
+                    <Button size="sm" onClick={() => setShowAddField(true)}>
                       <Plus className="h-4 w-4 mr-2" />
                       Add Field
                     </Button>
@@ -159,7 +161,7 @@ export default function ManageBucketsPage() {
                     <div className="text-center py-12">
                       <FolderPlus className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                       <p className="text-gray-600 mb-4">No custom fields yet</p>
-                      <Button>
+                      <Button onClick={() => setShowAddField(true)}>
                         <Plus className="h-4 w-4 mr-2" />
                         Add Your First Field
                       </Button>
@@ -227,6 +229,23 @@ export default function ManageBucketsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Dialogs */}
+      <CreateBucketDialog
+        open={showCreateBucket}
+        onOpenChange={setShowCreateBucket}
+        onSuccess={loadBuckets}
+      />
+
+      {selectedBucket && (
+        <AddFieldDialog
+          open={showAddField}
+          onOpenChange={setShowAddField}
+          bucketId={selectedBucket.id}
+          bucketName={selectedBucket.name}
+          onSuccess={() => loadCustomFields(selectedBucket.id)}
+        />
+      )}
     </div>
   )
 }
