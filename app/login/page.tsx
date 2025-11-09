@@ -27,9 +27,14 @@ export default function LoginPage() {
       if (result.error) {
         setError(result.error)
       } else if (result.user) {
-        // Redirect based on role
-        router.push('/')
-        router.refresh()
+        // Get redirect URL from query params or default to home
+        const params = new URLSearchParams(window.location.search)
+        const redirectTo = params.get('redirect') || '/'
+        
+        // Small delay to ensure session is set
+        setTimeout(() => {
+          window.location.href = redirectTo
+        }, 100)
       }
     } catch (err) {
       setError('An unexpected error occurred')
