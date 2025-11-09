@@ -63,11 +63,11 @@ export default function ImportLeadsPage() {
           <div className="mt-8 p-6 bg-blue-50 rounded-lg">
             <h3 className="font-semibold text-blue-900 mb-2">CSV Format Guidelines:</h3>
             <ul className="text-sm text-blue-800 space-y-1">
-              <li>• Required columns: name, status, category</li>
-              <li>• Optional columns: email, phone, region, value, priority, team</li>
-              <li>• Status values: new, contacted, qualified, converted, lost, disqualified</li>
-              <li>• Category values: IT Services, Healthcare, E-commerce, Manufacturing, Real Estate, Education</li>
-              <li>• You can add custom fields by mapping any CSV column to "Custom Field"</li>
+              <li>• <strong>Required columns:</strong> Name, Phone Number, School, District, Gender, Stream</li>
+              <li>• <strong>Gender values:</strong> Male, Female, Other, Prefer not to say</li>
+              <li>• <strong>Stream examples:</strong> Science, Commerce, Arts, Engineering, Medical, etc.</li>
+              <li>• <strong>Custom fields:</strong> Additional columns will be mapped to bucket-specific custom fields</li>
+              <li>• <strong>Tip:</strong> Download the sample CSV template after selecting a bucket for the correct format</li>
             </ul>
           </div>
         </div>

@@ -8,34 +8,57 @@ import { FilterSection } from './FilterSection'
 import { SearchBar } from './SearchBar'
 import { CustomFieldFilters } from './CustomFieldFilters'
 import { useFilterStore } from '@/stores/filterStore'
-import { useUniqueValues } from '@/hooks/useUniqueValues'
 import { useLeadCounts } from '@/hooks/useLeadCounts'
+import { useFilterValueCounts } from '@/hooks/useFilterValueCounts'
 import { Filter, X } from 'lucide-react'
 
 export function FilterPanel() {
   const {
-    status,
-    category,
-    region,
+    school,
+    district,
+    gender,
+    stream,
     searchQuery,
-    setStatus,
-    setCategory,
-    setRegion,
+    setSchool,
+    setDistrict,
+    setGender,
+    setStream,
     setSearchQuery,
     clearAllFilters,
   } = useFilterStore()
 
-  const { data: uniqueValues, isLoading: isLoadingValues } = useUniqueValues()
   const { data: counts } = useLeadCounts()
+  const { data: valueCounts, isLoading: isLoadingValues } = useFilterValueCounts()
+  
+  // Extract unique values from valueCounts and sort by count (highest first)
+  const sortByCount = (counts: Record<string, number>) => {
+    if (!counts || typeof counts !== 'object') {
+      console.warn('sortByCount received invalid counts:', counts)
+      return []
+    }
+    const entries = Object.entries(counts)
+    console.log('sortByCount entries:', entries.length, 'first few:', entries.slice(0, 3))
+    return entries
+      .sort(([, a], [, b]) => b - a)
+      .map(([key]) => key)
+  }
+  
+  const uniqueValues = valueCounts ? {
+    school: sortByCount(valueCounts.school || {}),
+    district: sortByCount(valueCounts.district || {}),
+    gender: sortByCount(valueCounts.gender || {}),
+    stream: sortByCount(valueCounts.stream || {}),
+  } : null
 
   const hasActiveFilters =
-    status.length > 0 ||
-    category.length > 0 ||
-    region.length > 0 ||
+    school.length > 0 ||
+    district.length > 0 ||
+    gender.length > 0 ||
+    stream.length > 0 ||
     searchQuery.trim() !== ''
 
   const totalSelectedFilters =
-    status.length + category.length + region.length + (searchQuery ? 1 : 0)
+    school.length + district.length + gender.length + stream.length + (searchQuery ? 1 : 0)
 
   return (
     <Card className="h-full">
@@ -61,9 +84,14 @@ export function FilterPanel() {
           )}
         </div>
 
-        {counts && (
-          <div className="text-sm text-muted-foreground mt-2">
-            {counts.hasActiveFilters ? (
+        <div className="text-sm text-muted-foreground mt-2">
+          {isLoadingValues ? (
+            <div className="flex items-center gap-2">
+              <div className="h-3 w-3 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
+              <span>Loading filters...</span>
+            </div>
+          ) : counts ? (
+            counts.hasActiveFilters ? (
               <>
                 Showing <strong>{counts.filteredCount}</strong> of{' '}
                 <strong>{counts.totalCount}</strong> leads
@@ -72,9 +100,9 @@ export function FilterPanel() {
               <>
                 <strong>{counts.totalCount}</strong> total leads
               </>
-            )}
-          </div>
-        )}
+            )
+          ) : null}
+        </div>
       </CardHeader>
 
       <Separator />
@@ -84,7 +112,7 @@ export function FilterPanel() {
         <SearchBar
           value={searchQuery}
           onChange={setSearchQuery}
-          placeholder="Search by name, email, phone..."
+          placeholder="Search by name, phone..."
         />
 
         <Separator className="my-4" />
@@ -92,31 +120,45 @@ export function FilterPanel() {
         {/* Filter Sections */}
         <div className="space-y-4">
           <FilterSection
-            title="Status"
-            options={uniqueValues?.status || []}
-            selectedValues={status}
-            onChange={setStatus}
+            title="School"
+            options={uniqueValues?.school || []}
+            selectedValues={school}
+            onChange={setSchool}
             isLoading={isLoadingValues}
+            counts={valueCounts?.school || {}}
           />
 
           <Separator />
 
           <FilterSection
-            title="Category"
-            options={uniqueValues?.category || []}
-            selectedValues={category}
-            onChange={setCategory}
+            title="District"
+            options={uniqueValues?.district || []}
+            selectedValues={district}
+            onChange={setDistrict}
             isLoading={isLoadingValues}
+            counts={valueCounts?.district || {}}
           />
 
           <Separator />
 
           <FilterSection
-            title="Region"
-            options={uniqueValues?.region || []}
-            selectedValues={region}
-            onChange={setRegion}
+            title="Gender"
+            options={uniqueValues?.gender || []}
+            selectedValues={gender}
+            onChange={setGender}
             isLoading={isLoadingValues}
+            counts={valueCounts?.gender || {}}
+          />
+
+          <Separator />
+
+          <FilterSection
+            title="Stream"
+            options={uniqueValues?.stream || []}
+            selectedValues={stream}
+            onChange={setStream}
+            isLoading={isLoadingValues}
+            counts={valueCounts?.stream || {}}
           />
 
           {/* Custom Field Filters */}

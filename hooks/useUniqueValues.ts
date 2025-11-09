@@ -4,9 +4,10 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 
 interface UniqueValues {
-  status: string[]
-  category: string[]
-  region: string[]
+  school: string[]
+  district: string[]
+  gender: string[]
+  stream: string[]
 }
 
 export function useUniqueValues() {
@@ -15,45 +16,69 @@ export function useUniqueValues() {
     queryFn: async () => {
       console.log('🔍 Fetching unique filter values...')
 
-      // Fetch unique statuses
-      const { data: statusData } = await supabase
+      // Fetch unique values for all filterable fields
+      const { data: schoolData } = await supabase
         .from('leads')
-        .select('status')
-        .order('status')
+        .select('school')
+        .order('school')
 
-      // Fetch unique categories
-      const { data: categoryData } = await supabase
+      const { data: districtData } = await supabase
         .from('leads')
-        .select('category')
-        .order('category')
+        .select('district')
+        .order('district')
 
-      // Fetch unique regions
-      const { data: regionData } = await supabase
+      const { data: genderData } = await supabase
         .from('leads')
-        .select('region')
-        .order('region')
+        .select('gender')
+        .order('gender')
 
-      // Extract unique values
-      const uniqueStatuses = [
-        ...new Set(statusData?.map((row) => row.status).filter(Boolean)),
+      const { data: streamData } = await supabase
+        .from('leads')
+        .select('stream')
+        .order('stream')
+
+      // Extract unique values and filter out null/undefined/empty strings
+      const uniqueSchools = [
+        ...new Set(
+          schoolData
+            ?.map((row) => row.school)
+            .filter((val) => val !== null && val !== undefined && val !== '')
+        ),
       ]
-      const uniqueCategories = [
-        ...new Set(categoryData?.map((row) => row.category).filter(Boolean)),
+      const uniqueDistricts = [
+        ...new Set(
+          districtData
+            ?.map((row) => row.district)
+            .filter((val) => val !== null && val !== undefined && val !== '')
+        ),
       ]
-      const uniqueRegions = [
-        ...new Set(regionData?.map((row) => row.region).filter(Boolean)),
+      const uniqueGenders = [
+        ...new Set(
+          genderData
+            ?.map((row) => row.gender)
+            .filter((val) => val !== null && val !== undefined && val !== '')
+        ),
+      ]
+      const uniqueStreams = [
+        ...new Set(
+          streamData
+            ?.map((row) => row.stream)
+            .filter((val) => val !== null && val !== undefined && val !== '')
+        ),
       ]
 
       console.log('✅ Unique values:', {
-        statuses: uniqueStatuses.length,
-        categories: uniqueCategories.length,
-        regions: uniqueRegions.length,
+        schools: uniqueSchools.length,
+        districts: uniqueDistricts.length,
+        genders: uniqueGenders.length,
+        streams: uniqueStreams.length,
       })
 
       return {
-        status: uniqueStatuses,
-        category: uniqueCategories,
-        region: uniqueRegions,
+        school: uniqueSchools,
+        district: uniqueDistricts,
+        gender: uniqueGenders,
+        stream: uniqueStreams,
       } as UniqueValues
     },
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes

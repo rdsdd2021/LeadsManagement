@@ -110,7 +110,7 @@ export function useLeadsOptimized(options: UseLeadsOptions = {}) {
         
         // Try full-text search first (requires idx_leads_search index)
         supabaseQuery = supabaseQuery.or(
-          `name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,phone.ilike.%${searchTerm}%`
+          `name.ilike.%${searchTerm}%,phone.ilike.%${searchTerm}%`
         )
       }
 
@@ -153,7 +153,7 @@ export function useLeadsOptimized(options: UseLeadsOptions = {}) {
       }
 
       return {
-        data: data as Lead[],
+        data: data as unknown as Lead[],
         count: count || 0,
         queryTime,
       }

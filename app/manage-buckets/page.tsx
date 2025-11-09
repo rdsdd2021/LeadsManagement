@@ -66,6 +66,54 @@ export default function ManageBucketsPage() {
     loadCustomFields(bucket.id)
   }
 
+  const handleDeleteBucket = async (bucketId: string, bucketName: string) => {
+    if (!confirm(`Are you sure you want to delete "${bucketName}"? This will also delete all custom fields associated with this bucket.`)) {
+      return
+    }
+
+    try {
+      const { error } = await supabase
+        .from('lead_buckets')
+        .delete()
+        .eq('id', bucketId)
+
+      if (error) throw error
+
+      // Reload buckets
+      await loadBuckets()
+      
+      // Clear selection if deleted bucket was selected
+      if (selectedBucket?.id === bucketId) {
+        setSelectedBucket(null)
+        setCustomFields([])
+      }
+    } catch (err: any) {
+      alert(`Failed to delete bucket: ${err.message}`)
+    }
+  }
+
+  const handleDeleteField = async (fieldId: string, fieldLabel: string) => {
+    if (!confirm(`Are you sure you want to delete the field "${fieldLabel}"?`)) {
+      return
+    }
+
+    try {
+      const { error } = await supabase
+        .from('custom_fields')
+        .delete()
+        .eq('id', fieldId)
+
+      if (error) throw error
+
+      // Reload custom fields
+      if (selectedBucket) {
+        await loadCustomFields(selectedBucket.id)
+      }
+    } catch (err: any) {
+      alert(`Failed to delete field: ${err.message}`)
+    }
+  }
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -108,11 +156,11 @@ export default function ManageBucketsPage() {
               <CardContent>
                 <div className="space-y-2">
                   {buckets.map((bucket) => (
-                    <button
+                    <div
                       key={bucket.id}
                       onClick={() => handleBucketSelect(bucket)}
                       className={`
-                        w-full text-left p-4 rounded-lg border-2 transition-colors
+                        w-full text-left p-4 rounded-lg border-2 transition-colors cursor-pointer
                         ${selectedBucket?.id === bucket.id
                           ? 'border-blue-500 bg-blue-50'
                           : 'border-gray-200 hover:border-gray-300'
@@ -120,18 +168,31 @@ export default function ManageBucketsPage() {
                       `}
                     >
                       <div className="flex items-center justify-between">
-                        <div>
+                        <div className="flex-1">
                           <h3 className="font-semibold">{bucket.name}</h3>
                           <p className="text-sm text-gray-600">{bucket.description}</p>
                         </div>
-                        {bucket.color && (
-                          <div
-                            className="w-4 h-4 rounded-full"
-                            style={{ backgroundColor: bucket.color }}
-                          />
-                        )}
+                        <div className="flex items-center gap-2">
+                          {bucket.color && (
+                            <div
+                              className="w-4 h-4 rounded-full"
+                              style={{ backgroundColor: bucket.color }}
+                            />
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDeleteBucket(bucket.id, bucket.name)
+                            }}
+                            className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
-                    </button>
+                    </div>
                   ))}
                 </div>
               </CardContent>
@@ -195,7 +256,12 @@ export default function ManageBucketsPage() {
                             <Button variant="outline" size="sm">
                               <Edit className="h-4 w-4" />
                             </Button>
-                            <Button variant="outline" size="sm">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleDeleteField(field.id, field.label)}
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            >
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>

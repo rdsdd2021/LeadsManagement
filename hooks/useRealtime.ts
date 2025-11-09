@@ -51,19 +51,24 @@ export function useRealtime({
 
     // Subscribe to changes
     channel = supabase
-      .channel(`${table}-changes`)
+      .channel(`${table}-changes-${Date.now()}`) // Unique channel name to avoid conflicts
       .on(
         'postgres_changes',
         channelConfig,
         handleRealtimeEvent
       )
-      .subscribe((status) => {
+      .subscribe((status, err) => {
         console.log('📊 Realtime subscription status:', status)
 
         if (status === 'SUBSCRIBED') {
           console.log('✅ Realtime connected for:', table)
         } else if (status === 'CHANNEL_ERROR') {
-          console.error('❌ Realtime connection failed for:', table)
+          console.warn('⚠️ Realtime connection failed for:', table, err)
+          console.warn('Continuing without realtime updates. Data will refresh on manual actions.')
+        } else if (status === 'TIMED_OUT') {
+          console.warn('⚠️ Realtime connection timed out for:', table)
+        } else if (status === 'CLOSED') {
+          console.log('🔌 Realtime connection closed for:', table)
         }
       })
 

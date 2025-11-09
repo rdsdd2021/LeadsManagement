@@ -1,0 +1,137 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { supabaseServer } from '@/lib/supabase-server'
+
+export async function POST(request: NextRequest) {
+  const startTime = Date.now()
+  
+  try {
+    const body = await request.json()
+    const {
+      school = [],
+      district = [],
+      gender = [],
+      stream = [],
+      searchQuery = '',
+      dateRange = {},
+      customFilters = {},
+    } = body
+
+    console.log('🔍 Filter counts API called')
+
+    // Fetch data for each field separately with filters
+    const fetchFieldCounts = async (field: string, excludeField: string) => {
+      let query = supabaseServer.from('leads').select(field)
+
+      // Apply filters except the excluded field
+      if (excludeField !== 'school' && school.length > 0) {
+        query = query.in('school', school)
+      }
+      if (excludeField !== 'district' && district.length > 0) {
+        query = query.in('district', district)
+      }
+      if (excludeField !== 'gender' && gender.length > 0) {
+        query = query.in('gender', gender)
+      }
+      if (excludeField !== 'stream' && stream.length > 0) {
+        query = query.in('stream', stream)
+      }
+
+      // Apply search query
+      if (searchQuery && searchQuery.trim()) {
+        query = query.or(`name.ilike.%${searchQuery}%,phone.ilike.%${searchQuery}%`)
+      }
+
+      // Apply date range
+      if (dateRange?.from) {
+        query = query.gte('created_at', dateRange.from)
+      }
+      if (dateRange?.to) {
+        query = query.lte('created_at', dateRange.to)
+      }
+
+      // Apply custom field filters
+      if (customFilters && Object.keys(customFilters).length > 0) {
+        Object.entries(customFilters).forEach(([key, value]) => {
+          if (value !== null && value !== undefined && value !== '') {
+            query = query.eq(`custom_fields->>${key}`, value)
+          }
+        })
+      }
+
+      // Fetch all data in chunks
+      const counts: Record<string, number> = {}
+      let from = 0
+      const pageSize = 1000
+      let hasMore = true
+
+      while (hasMore) {
+        const { data, error } = await query.range(from, from + pageSize - 1)
+        
+        if (error) {
+          console.error(`Error fetching ${field}:`, error)
+          break
+        }
+        
+        if (data && data.length > 0) {
+          data.forEach((row: any) => {
+            const value = row[field]
+            if (value && String(value).trim() !== '') {
+              counts[value] = (counts[value] || 0) + 1
+            }
+          })
+          
+          from += pageSize
+          hasMore = data.length === pageSize
+        } else {
+          hasMore = false
+        }
+      }
+
+      return counts
+    }
+
+    // Fetch all field counts in parallel
+    const [schoolCounts, districtCounts, genderCounts, streamCounts] = await Promise.all([
+      fetchFieldCounts('school', 'school'),
+      fetchFieldCounts('district', 'district'),
+      fetchFieldCounts('gender', 'gender'),
+      fetchFieldCounts('stream', 'stream'),
+    ])
+
+    const duration = Date.now() - startTime
+    console.log(`✅ Filter counts computed in ${duration}ms:`, {
+      schoolCount: Object.keys(schoolCounts).length,
+      districtCount: Object.keys(districtCounts).length,
+      genderCount: Object.keys(genderCounts).length,
+      streamCount: Object.keys(streamCounts).length,
+    })
+
+    return NextResponse.json({
+      school: schoolCounts,
+      district: districtCounts,
+      gender: genderCounts,
+      stream: streamCounts,
+      customFields: {},
+    }, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
+      }
+    })
+  } catch (error) {
+    const duration = Date.now() - startTime
+    console.error(`❌ Error fetching filter counts after ${duration}ms:`, error)
+    
+    return NextResponse.json({
+      school: {},
+      district: {},
+      gender: {},
+      stream: {},
+      customFields: {},
+    }, {
+      status: 200,
+      headers: {
+        'Cache-Control': 'no-cache',
+      }
+    })
+  }
+}

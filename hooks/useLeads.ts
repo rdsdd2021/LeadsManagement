@@ -6,32 +6,39 @@ import { useRealtime } from './useRealtime'
 import { useFilterStore } from '@/stores/filterStore'
 
 interface Lead {
+  // System fields
   id: string
-  status: string
-  category: string
-  region: string | null
-  name: string
-  phone: string | null
-  email: string | null
-  value: number
-  priority: number
-  assigned_to: string | null
-  custom_fields: any
   created_at: string
   updated_at: string
   created_by: string | null
-  team: string | null
+  bucket_id: string | null
+  
+  // User-uploaded mandatory fields (from CSV)
+  name: string
+  phone: string | null
+  school: string | null
+  district: string | null
+  gender: string | null
+  stream: string | null
+  
+  // User-uploaded custom fields (from CSV, bucket-specific)
+  custom_fields: any
+  
+  // Assignment fields (set by admin/manager)
+  assigned_to: string | null
+  assignment_date: string | null
 }
 
-export function useLeads() {
-  // Get filters from Zustand store
+export function useLeads(showOnlyAssigned: boolean = false) {
+  // Get DEBOUNCED filters from Zustand store (for API calls)
   const {
-    status,
-    category,
-    region,
-    searchQuery,
-    dateRange,
-    customFilters,
+    debouncedSchool: school,
+    debouncedDistrict: district,
+    debouncedGender: gender,
+    debouncedStream: stream,
+    debouncedSearchQuery: searchQuery,
+    debouncedDateRange: dateRange,
+    debouncedCustomFilters: customFilters,
     page,
     pageSize,
   } = useFilterStore()
@@ -39,92 +46,80 @@ export function useLeads() {
   const queryKey = [
     'leads',
     {
-      status,
-      category,
-      region,
+      school,
+      district,
+      gender,
+      stream,
       searchQuery,
       dateRange,
       customFilters,
       page,
       pageSize,
+      showOnlyAssigned,
     },
   ]
 
   const query = useQuery({
     queryKey,
     queryFn: async () => {
-      console.log('🔍 Fetching leads with filters:', {
-        status,
-        category,
-        region,
+      const startTime = Date.now()
+      console.log('🔍 Fetching leads via API with filters:', {
+        school: school.length,
+        district: district.length,
+        gender: gender.length,
+        stream: stream.length,
         searchQuery,
         page,
+        showOnlyAssigned,
       })
 
-      // Start building the query
-      let supabaseQuery = supabase
-        .from('leads')
-        .select('*', { count: 'exact' })
-        .order('created_at', { ascending: false })
+      try {
+        // Use server-side API for better performance and reliability
+        const response = await fetch('/api/leads', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            school,
+            district,
+            gender,
+            stream,
+            searchQuery,
+            dateRange: {
+              from: dateRange.from?.toISOString(),
+              to: dateRange.to?.toISOString(),
+            },
+            customFilters,
+            page,
+            pageSize,
+            showOnlyAssigned,
+          }),
+        })
 
-      // Apply status filter
-      if (status.length > 0) {
-        supabaseQuery = supabaseQuery.in('status', status)
-      }
-
-      // Apply category filter
-      if (category.length > 0) {
-        supabaseQuery = supabaseQuery.in('category', category)
-      }
-
-      // Apply region filter
-      if (region.length > 0) {
-        supabaseQuery = supabaseQuery.in('region', region)
-      }
-
-      // Apply search query (searches name, email, phone)
-      if (searchQuery.trim()) {
-        supabaseQuery = supabaseQuery.or(
-          `name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%,phone.ilike.%${searchQuery}%`
-        )
-      }
-
-      // Apply date range filter
-      if (dateRange.from) {
-        supabaseQuery = supabaseQuery.gte('created_at', dateRange.from.toISOString())
-      }
-      if (dateRange.to) {
-        supabaseQuery = supabaseQuery.lte('created_at', dateRange.to.toISOString())
-      }
-
-      // Apply custom field filters
-      Object.entries(customFilters).forEach(([key, value]) => {
-        if (value !== null && value !== undefined && value !== '') {
-          supabaseQuery = supabaseQuery.eq(`custom_fields->>${key}`, value)
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.details || 'Failed to fetch leads')
         }
-      })
 
-      // Apply pagination
-      const start = page * pageSize
-      const end = start + pageSize - 1
-      supabaseQuery = supabaseQuery.range(start, end)
+        const result = await response.json()
+        
+        const duration = Date.now() - startTime
+        console.log(`✅ Fetched leads in ${duration}ms:`, result.data?.length, 'of', result.count)
 
-      // Execute query
-      const { data, error, count } = await supabaseQuery
-
-      if (error) {
-        console.error('❌ Error fetching leads:', error)
+        return {
+          data: result.data as Lead[],
+          count: result.count || 0,
+        }
+      } catch (error) {
+        const duration = Date.now() - startTime
+        console.error(`❌ Error fetching leads after ${duration}ms:`, error)
         throw error
-      }
-
-      console.log('✅ Fetched leads:', data?.length, 'of', count)
-
-      return {
-        data: data as Lead[],
-        count: count || 0,
       }
     },
     staleTime: 30 * 1000,
+    retry: 2, // Retry failed queries twice
+    retryDelay: 1000, // Wait 1 second between retries
   })
 
   // Set up realtime subscription

@@ -29,6 +29,12 @@ export function Navigation() {
       roles: ['admin']
     },
     {
+      name: 'Manage Users',
+      href: '/manage-users',
+      icon: Shield,
+      roles: ['admin']
+    },
+    {
       name: 'Performance Tests',
       href: '/test-performance',
       icon: TestTube,

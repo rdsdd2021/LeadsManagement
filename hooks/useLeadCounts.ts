@@ -3,22 +3,26 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useFilterStore } from '@/stores/filterStore'
+import { useRealtime } from './useRealtime'
 
 export function useLeadCounts() {
   const {
-    status,
-    category,
-    region,
-    searchQuery,
-    dateRange,
-    customFilters,
+    debouncedSchool: school,
+    debouncedDistrict: district,
+    debouncedGender: gender,
+    debouncedStream: stream,
+    debouncedSearchQuery: searchQuery,
+    debouncedDateRange: dateRange,
+    debouncedCustomFilters: customFilters,
   } = useFilterStore()
 
-  return useQuery({
-    queryKey: [
-      'lead-counts',
-      { status, category, region, searchQuery, dateRange, customFilters },
-    ],
+  const queryKey = [
+    'lead-counts',
+    { school, district, gender, stream, searchQuery, dateRange, customFilters },
+  ]
+
+  const query = useQuery({
+    queryKey,
     queryFn: async () => {
       console.log('🔍 Fetching lead counts...')
 
@@ -28,18 +32,21 @@ export function useLeadCounts() {
         .select('*', { count: 'exact', head: true }) // head: true = don't return data, just count
 
       // Apply same filters as main query
-      if (status.length > 0) {
-        filteredQuery = filteredQuery.in('status', status)
+      if (school.length > 0) {
+        filteredQuery = filteredQuery.in('school', school)
       }
-      if (category.length > 0) {
-        filteredQuery = filteredQuery.in('category', category)
+      if (district.length > 0) {
+        filteredQuery = filteredQuery.in('district', district)
       }
-      if (region.length > 0) {
-        filteredQuery = filteredQuery.in('region', region)
+      if (gender.length > 0) {
+        filteredQuery = filteredQuery.in('gender', gender)
+      }
+      if (stream.length > 0) {
+        filteredQuery = filteredQuery.in('stream', stream)
       }
       if (searchQuery.trim()) {
         filteredQuery = filteredQuery.or(
-          `name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%,phone.ilike.%${searchQuery}%`
+          `name.ilike.%${searchQuery}%,phone.ilike.%${searchQuery}%`
         )
       }
       if (dateRange.from) {
@@ -70,9 +77,10 @@ export function useLeadCounts() {
         filteredCount,
         totalCount,
         hasActiveFilters:
-          status.length > 0 ||
-          category.length > 0 ||
-          region.length > 0 ||
+          school.length > 0 ||
+          district.length > 0 ||
+          gender.length > 0 ||
+          stream.length > 0 ||
           searchQuery.trim() !== '' ||
           dateRange.from !== null ||
           dateRange.to !== null ||
@@ -81,4 +89,13 @@ export function useLeadCounts() {
     },
     staleTime: 30 * 1000, // Cache for 30 seconds
   })
+
+  // Set up realtime subscription to invalidate counts when leads change
+  useRealtime({
+    table: 'leads',
+    queryKey,
+    enabled: false, // Disabled until realtime is enabled in Supabase dashboard
+  })
+
+  return query
 }

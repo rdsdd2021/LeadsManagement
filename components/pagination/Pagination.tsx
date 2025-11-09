@@ -1,53 +1,75 @@
 'use client'
 
 import { Button } from '@/components/ui/button'
-import { useFilterStore } from '@/stores/filterStore'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
 
 interface PaginationProps {
-  totalCount: number
   currentPage: number
+  totalCount: number
   pageSize: number
+  onPageChange: (page: number) => void
+  onPageSizeChange: (size: number) => void
 }
 
-export function Pagination({ totalCount, currentPage, pageSize }: PaginationProps) {
-  const { setPage, setPageSize } = useFilterStore()
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, 200, 500]
 
+export function Pagination({
+  currentPage,
+  totalCount,
+  pageSize,
+  onPageChange,
+  onPageSizeChange,
+}: PaginationProps) {
   const totalPages = Math.ceil(totalCount / pageSize)
-  const hasNextPage = currentPage < totalPages - 1
-  const hasPrevPage = currentPage > 0
-
   const startItem = currentPage * pageSize + 1
   const endItem = Math.min((currentPage + 1) * pageSize, totalCount)
 
-  // Generate page numbers to show
+  const canGoPrevious = currentPage > 0
+  const canGoNext = currentPage < totalPages - 1
+
+  const goToFirstPage = () => onPageChange(0)
+  const goToPreviousPage = () => onPageChange(currentPage - 1)
+  const goToNextPage = () => onPageChange(currentPage + 1)
+  const goToLastPage = () => onPageChange(totalPages - 1)
+
+  // Generate page numbers to display
   const getPageNumbers = () => {
     const pages: (number | string)[] = []
-    const maxVisible = 7
+    const maxVisible = 7 // Maximum number of page buttons to show
 
     if (totalPages <= maxVisible) {
-      // Show all pages
+      // Show all pages if total is small
       for (let i = 0; i < totalPages; i++) {
         pages.push(i)
       }
     } else {
-      // Show first, last, and pages around current
-      pages.push(0) // First page
+      // Always show first page
+      pages.push(0)
 
-      if (currentPage > 2) {
+      if (currentPage <= 3) {
+        // Near the start
+        for (let i = 1; i <= 5; i++) {
+          pages.push(i)
+        }
         pages.push('...')
-      }
-
-      // Pages around current
-      for (let i = Math.max(1, currentPage - 1); i <= Math.min(totalPages - 2, currentPage + 1); i++) {
-        pages.push(i)
-      }
-
-      if (currentPage < totalPages - 3) {
+        pages.push(totalPages - 1)
+      } else if (currentPage >= totalPages - 4) {
+        // Near the end
         pages.push('...')
+        for (let i = totalPages - 6; i < totalPages - 1; i++) {
+          pages.push(i)
+        }
+        pages.push(totalPages - 1)
+      } else {
+        // In the middle
+        pages.push('...')
+        for (let i = currentPage - 1; i <= currentPage + 1; i++) {
+          pages.push(i)
+        }
+        pages.push('...')
+        pages.push(totalPages - 1)
       }
-
-      pages.push(totalPages - 1) // Last page
     }
 
     return pages
@@ -58,37 +80,44 @@ export function Pagination({ totalCount, currentPage, pageSize }: PaginationProp
   }
 
   return (
-    <div className="flex items-center justify-between px-4 py-3 border-t">
-      {/* Results info */}
+    <div className="flex items-center justify-between gap-4 px-2 py-3 border-t bg-white">
+      {/* Left: Items info and page size selector */}
       <div className="flex items-center gap-4">
-        <p className="text-sm text-gray-700 dark:text-gray-300">
+        <div className="text-sm text-gray-700">
           Showing <span className="font-medium">{startItem}</span> to{' '}
           <span className="font-medium">{endItem}</span> of{' '}
           <span className="font-medium">{totalCount}</span> results
-        </p>
+        </div>
 
-        {/* Page size selector */}
-        <select
-          value={pageSize}
-          onChange={(e) => setPageSize(Number(e.target.value))}
-          className="text-sm border rounded px-2 py-1 bg-white dark:bg-gray-800"
-        >
-          <option value={50}>50 per page</option>
-          <option value={100}>100 per page</option>
-          <option value={200}>200 per page</option>
-          <option value={500}>500 per page</option>
-        </select>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-600">Per page:</span>
+          <Select
+            value={pageSize.toString()}
+            onValueChange={(value) => onPageSizeChange(parseInt(value))}
+          >
+            <SelectTrigger className="w-20 h-9">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PAGE_SIZE_OPTIONS.map((size) => (
+                <SelectItem key={size} value={size.toString()}>
+                  {size}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
-      {/* Pagination controls */}
+      {/* Right: Page navigation */}
       <div className="flex items-center gap-2">
         {/* First page */}
         <Button
           variant="outline"
           size="sm"
-          onClick={() => setPage(0)}
-          disabled={!hasPrevPage}
-          className="h-8 w-8 p-0"
+          onClick={goToFirstPage}
+          disabled={!canGoPrevious}
+          className="h-9 w-9 p-0"
         >
           <ChevronsLeft className="h-4 w-4" />
         </Button>
@@ -97,40 +126,48 @@ export function Pagination({ totalCount, currentPage, pageSize }: PaginationProp
         <Button
           variant="outline"
           size="sm"
-          onClick={() => setPage(currentPage - 1)}
-          disabled={!hasPrevPage}
-          className="h-8 w-8 p-0"
+          onClick={goToPreviousPage}
+          disabled={!canGoPrevious}
+          className="h-9 w-9 p-0"
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
 
         {/* Page numbers */}
         <div className="flex items-center gap-1">
-          {getPageNumbers().map((page, index) => (
-            <div key={index}>
-              {page === '...' ? (
-                <span className="px-2 text-gray-500">...</span>
-              ) : (
-                <Button
-                  variant={currentPage === page ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setPage(page as number)}
-                  className="h-8 min-w-8 px-2"
-                >
-                  {(page as number) + 1}
-                </Button>
-              )}
-            </div>
-          ))}
+          {getPageNumbers().map((page, index) => {
+            if (page === '...') {
+              return (
+                <span key={`ellipsis-${index}`} className="px-2 text-gray-500">
+                  ...
+                </span>
+              )
+            }
+
+            const pageNum = page as number
+            const isActive = pageNum === currentPage
+
+            return (
+              <Button
+                key={pageNum}
+                variant={isActive ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => onPageChange(pageNum)}
+                className="h-9 w-9 p-0"
+              >
+                {pageNum + 1}
+              </Button>
+            )
+          })}
         </div>
 
         {/* Next page */}
         <Button
           variant="outline"
           size="sm"
-          onClick={() => setPage(currentPage + 1)}
-          disabled={!hasNextPage}
-          className="h-8 w-8 p-0"
+          onClick={goToNextPage}
+          disabled={!canGoNext}
+          className="h-9 w-9 p-0"
         >
           <ChevronRight className="h-4 w-4" />
         </Button>
@@ -139,9 +176,9 @@ export function Pagination({ totalCount, currentPage, pageSize }: PaginationProp
         <Button
           variant="outline"
           size="sm"
-          onClick={() => setPage(totalPages - 1)}
-          disabled={!hasNextPage}
-          className="h-8 w-8 p-0"
+          onClick={goToLastPage}
+          disabled={!canGoNext}
+          className="h-9 w-9 p-0"
         >
           <ChevronsRight className="h-4 w-4" />
         </Button>

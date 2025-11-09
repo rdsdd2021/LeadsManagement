@@ -19,6 +19,7 @@ interface FilterSectionProps {
   selectedValues: string[]
   onChange: (values: string[]) => void
   isLoading?: boolean
+  counts?: Record<string, number>
 }
 
 export function FilterSection({
@@ -27,6 +28,7 @@ export function FilterSection({
   selectedValues,
   onChange,
   isLoading = false,
+  counts = {},
 }: FilterSectionProps) {
   const [isOpen, setIsOpen] = useState(true)
 
@@ -92,21 +94,33 @@ export function FilterSection({
         ) : (
           <ScrollArea className="h-[200px] pr-4">
             <div className="space-y-2">
-              {options.map((option) => (
-                <div key={option} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={`${title}-${option}`}
-                    checked={selectedValues.includes(option)}
-                    onCheckedChange={() => handleToggle(option)}
-                  />
-                  <Label
-                    htmlFor={`${title}-${option}`}
-                    className="text-sm font-normal cursor-pointer flex-1"
-                  >
-                    {option}
-                  </Label>
-                </div>
-              ))}
+              {options
+                .filter((option) => {
+                  const count = counts[option] || 0
+                  // Show option if it has count > 0 OR if it's currently selected
+                  return count > 0 || selectedValues.includes(option)
+                })
+                .map((option) => {
+                  const count = counts[option] || 0
+                  return (
+                    <div key={option} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`${title}-${option}`}
+                        checked={selectedValues.includes(option)}
+                        onCheckedChange={() => handleToggle(option)}
+                      />
+                      <Label
+                        htmlFor={`${title}-${option}`}
+                        className="text-sm font-normal cursor-pointer flex-1 flex items-center justify-between"
+                      >
+                        <span>{option}</span>
+                        <span className="text-xs text-muted-foreground ml-2">
+                          ({count})
+                        </span>
+                      </Label>
+                    </div>
+                  )
+                })}
             </div>
           </ScrollArea>
         )}
