@@ -4,52 +4,16 @@ import { useLeads } from '@/hooks/useLeads'
 import { FilterPanel } from '@/components/filters/FilterPanel'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { Header } from '@/components/layout/Header'
+import { useAuth } from '@/contexts/AuthContext'
 
 export default function Home() {
   const { data, isLoading, error } = useLeads()
-  const [authStatus, setAuthStatus] = useState<string>('checking...')
-
-  // Check authentication status
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        setAuthStatus(`✅ Authenticated as: ${session.user.email}`)
-      } else {
-        setAuthStatus('❌ NOT authenticated')
-      }
-    })
-  }, [])
+  const { user } = useAuth()
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b">
-        <div className="container mx-auto px-4 py-4">
-         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Lead Management System</h1>
-              <p className="text-sm text-muted-foreground">
-              Real-time lead tracking and management
-              </p>
-        <p className="text-xs text-gray-500 mt-1">{authStatus}</p>
-        </div>
-      
-      {/* Add this button: */}
-      <button
-        onClick={async () => {
-          const { signInAsAdmin } = await import('@/lib/auth')
-          await signInAsAdmin()
-          window.location.reload()
-        }}
-        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-      >
-        Sign In as Admin
-      </button>
-         </div>
-        </div>
-      </header>
+      <Header />
 
       {/* Main Content */}
       <div className="container mx-auto px-4 py-6">
