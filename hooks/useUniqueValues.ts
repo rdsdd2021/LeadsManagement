@@ -14,73 +14,27 @@ export function useUniqueValues() {
   return useQuery({
     queryKey: ['unique-values'],
     queryFn: async () => {
-      console.log('🔍 Fetching unique filter values...')
+      console.log('🔍 Fetching unique filter values from API...')
 
-      // Fetch unique values for all filterable fields
-      const { data: schoolData } = await supabase
-        .from('leads')
-        .select('school')
-        .order('school')
+      // Use server-side API to fetch ALL unique values (bypasses RLS and 1000 row limit)
+      const response = await fetch('/api/unique-values')
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch unique values')
+      }
 
-      const { data: districtData } = await supabase
-        .from('leads')
-        .select('district')
-        .order('district')
-
-      const { data: genderData } = await supabase
-        .from('leads')
-        .select('gender')
-        .order('gender')
-
-      const { data: streamData } = await supabase
-        .from('leads')
-        .select('stream')
-        .order('stream')
-
-      // Extract unique values and filter out null/undefined/empty strings
-      const uniqueSchools = [
-        ...new Set(
-          schoolData
-            ?.map((row) => row.school)
-            .filter((val) => val !== null && val !== undefined && val !== '')
-        ),
-      ]
-      const uniqueDistricts = [
-        ...new Set(
-          districtData
-            ?.map((row) => row.district)
-            .filter((val) => val !== null && val !== undefined && val !== '')
-        ),
-      ]
-      const uniqueGenders = [
-        ...new Set(
-          genderData
-            ?.map((row) => row.gender)
-            .filter((val) => val !== null && val !== undefined && val !== '')
-        ),
-      ]
-      const uniqueStreams = [
-        ...new Set(
-          streamData
-            ?.map((row) => row.stream)
-            .filter((val) => val !== null && val !== undefined && val !== '')
-        ),
-      ]
-
-      console.log('✅ Unique values:', {
-        schools: uniqueSchools.length,
-        districts: uniqueDistricts.length,
-        genders: uniqueGenders.length,
-        streams: uniqueStreams.length,
+      const data: UniqueValues = await response.json()
+      
+      console.log('✅ Unique values loaded:', {
+        schools: data.school.length,
+        districts: data.district.length,
+        genders: data.gender.length,
+        streams: data.stream.length,
       })
 
-      return {
-        school: uniqueSchools,
-        district: uniqueDistricts,
-        gender: uniqueGenders,
-        stream: uniqueStreams,
-      } as UniqueValues
+      return data
     },
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
   })
 }

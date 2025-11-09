@@ -10,6 +10,7 @@ import { CustomFieldFilters } from './CustomFieldFilters'
 import { useFilterStore } from '@/stores/filterStore'
 import { useLeadCounts } from '@/hooks/useLeadCounts'
 import { useFilterValueCounts } from '@/hooks/useFilterValueCounts'
+import { useUniqueValues } from '@/hooks/useUniqueValues'
 import { Filter, X } from 'lucide-react'
 
 export function FilterPanel() {
@@ -28,26 +29,35 @@ export function FilterPanel() {
   } = useFilterStore()
 
   const { data: counts } = useLeadCounts()
-  const { data: valueCounts, isLoading: isLoadingValues } = useFilterValueCounts()
+  const { data: valueCounts, isLoading: isLoadingCounts } = useFilterValueCounts()
+  const { data: allUniqueValues, isLoading: isLoadingUnique } = useUniqueValues()
   
-  // Extract unique values from valueCounts and sort by count (highest first)
-  const sortByCount = (counts: Record<string, number>) => {
-    if (!counts || typeof counts !== 'object') {
-      console.warn('sortByCount received invalid counts:', counts)
-      return []
-    }
-    const entries = Object.entries(counts)
-    console.log('sortByCount entries:', entries.length, 'first few:', entries.slice(0, 3))
-    return entries
-      .sort(([, a], [, b]) => b - a)
-      .map(([key]) => key)
+  const isLoadingValues = isLoadingCounts || isLoadingUnique
+  
+  // Merge all unique values with counts, sorted by count
+  const sortByCount = (allValues: string[], counts: Record<string, number>) => {
+    if (!allValues || !Array.isArray(allValues)) return []
+    
+    // Create array of [value, count] pairs
+    const withCounts = allValues.map(value => ({
+      value,
+      count: counts?.[value] || 0
+    }))
+    
+    // Sort by count (highest first), then alphabetically
+    return withCounts
+      .sort((a, b) => {
+        if (b.count !== a.count) return b.count - a.count
+        return a.value.localeCompare(b.value)
+      })
+      .map(item => item.value)
   }
   
-  const uniqueValues = valueCounts ? {
-    school: sortByCount(valueCounts.school || {}),
-    district: sortByCount(valueCounts.district || {}),
-    gender: sortByCount(valueCounts.gender || {}),
-    stream: sortByCount(valueCounts.stream || {}),
+  const uniqueValues = allUniqueValues ? {
+    school: sortByCount(allUniqueValues.school, valueCounts?.school || {}),
+    district: sortByCount(allUniqueValues.district, valueCounts?.district || {}),
+    gender: sortByCount(allUniqueValues.gender, valueCounts?.gender || {}),
+    stream: sortByCount(allUniqueValues.stream, valueCounts?.stream || {}),
   } : null
 
   const hasActiveFilters =

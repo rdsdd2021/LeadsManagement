@@ -94,13 +94,7 @@ export function FilterSection({
         ) : (
           <ScrollArea className="h-[200px] pr-4">
             <div className="space-y-2">
-              {options
-                .filter((option) => {
-                  const count = counts[option] || 0
-                  // Show option if it has count > 0 OR if it's currently selected
-                  return count > 0 || selectedValues.includes(option)
-                })
-                .map((option) => {
+              {options.map((option) => {
                   const count = counts[option] || 0
                   return (
                     <div key={option} className="flex items-center space-x-2">

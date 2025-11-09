@@ -92,11 +92,13 @@ export async function POST(request: NextRequest) {
         const { data, error } = await query.range(from, from + pageSize - 1)
         
         if (error) {
-          console.error(`Error fetching ${field}:`, error)
+          console.error(`❌ Error fetching ${field}:`, error)
           break
         }
         
         if (data && data.length > 0) {
+          console.log(`📦 Fetched ${data.length} rows for ${field} (iteration ${iterations + 1}, total unique: ${counts.size})`)
+          
           // Optimized: Batch process for better performance
           for (const row of data) {
             const value = row[field]
@@ -113,6 +115,8 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      console.log(`✅ ${field}: Found ${counts.size} unique values after ${iterations} iterations`)
+      
       // Convert Map to object
       return Object.fromEntries(counts)
     }
