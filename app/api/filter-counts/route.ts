@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
       let from = 0
       const pageSize = 2000 // Increased from 1000 for fewer round trips
       let hasMore = true
-      const maxIterations = 50 // Safety limit to prevent infinite loops
+      const maxIterations = 1000 // Increased to handle up to 2 million rows
 
       let iterations = 0
       while (hasMore && iterations < maxIterations) {
@@ -141,10 +141,12 @@ export async function POST(request: NextRequest) {
       
       // Fetch in chunks
       let from = 0
-      const pageSize = 1000
+      const pageSize = 2000
       let hasMore = true
+      let iterations = 0
+      const maxIterations = 1000
       
-      while (hasMore) {
+      while (hasMore && iterations < maxIterations) {
         const { data, error } = await query.range(from, from + pageSize - 1)
         
         if (error) break
@@ -166,10 +168,13 @@ export async function POST(request: NextRequest) {
           
           from += pageSize
           hasMore = data.length === pageSize
+          iterations++
         } else {
           hasMore = false
         }
       }
+      
+      console.log(`✅ Custom fields: Scanned ${from} rows in ${iterations} iterations`)
       
       return customFieldCounts
     }
