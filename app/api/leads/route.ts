@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseServer } from '@/lib/supabase-server'
 
+// In-memory cache for deduplication
+const requestCache = new Map<string, { promise: Promise<any>, timestamp: number }>()
+const CACHE_TTL = 3000 // 3 seconds for leads (shorter than filter counts)
+
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
   
@@ -29,7 +33,25 @@ export async function POST(request: NextRequest) {
       pageSize 
     })
 
-    // Start building the query
+    // Create cache key
+    const cacheKey = JSON.stringify({ school, district, gender, stream, searchQuery, dateRange, customFilters, page, pageSize })
+    
+    // Check cache
+    const cached = requestCache.get(cacheKey)
+    if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
+      console.log('⚡ Returning cached leads')
+      const result = await cached.promise
+      return NextResponse.json(result, {
+        headers: {
+          'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30',
+          'X-Cache': 'HIT',
+        }
+      })
+    }
+
+    // Create request promise
+    const requestPromise = (async () => {
+      // Start building the query
     let query = supabaseServer
       .from('leads')
       .select('*', { count: 'exact' })
@@ -93,15 +115,25 @@ export async function POST(request: NextRequest) {
       throw error
     }
 
-    const duration = Date.now() - startTime
-    console.log(`✅ Fetched ${data?.length} leads in ${duration}ms (total: ${count})`)
+      const duration = Date.now() - startTime
+      console.log(`✅ Fetched ${data?.length} leads in ${duration}ms (total: ${count})`)
 
-    return NextResponse.json({
-      data: data || [],
-      count: count || 0,
-    }, {
+      return {
+        data: data || [],
+        count: count || 0,
+      }
+    })()
+
+    // Store in cache
+    requestCache.set(cacheKey, { promise: requestPromise, timestamp: Date.now() })
+    setTimeout(() => requestCache.delete(cacheKey), CACHE_TTL)
+
+    const result = await requestPromise
+
+    return NextResponse.json(result, {
       headers: {
         'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30',
+        'X-Cache': 'MISS',
       }
     })
   } catch (error) {
