@@ -71,14 +71,7 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
 }
 
 async function getUserRole(userId: string): Promise<UserRole> {
-  // Try to get role from user_metadata first
-  const { data: { user } } = await supabase.auth.getUser()
-  
-  if (user?.user_metadata?.role) {
-    return user.user_metadata.role as UserRole
-  }
-
-  // If no role in metadata, check users table (you'll need to create this)
+  // Check users table for role
   const { data, error } = await supabase
     .from('users')
     .select('role')
@@ -86,6 +79,7 @@ async function getUserRole(userId: string): Promise<UserRole> {
     .single()
 
   if (error || !data) {
+    console.error('Error fetching user role:', error)
     // Default role if not found
     return UserRole.VIEWER
   }
