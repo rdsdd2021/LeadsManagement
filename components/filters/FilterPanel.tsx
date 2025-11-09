@@ -6,6 +6,7 @@ import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
 import { FilterSection } from './FilterSection'
 import { SearchBar } from './SearchBar'
+import { CustomFieldFilters } from './CustomFieldFilters'
 import { useFilterStore } from '@/stores/filterStore'
 import { useUniqueValues } from '@/hooks/useUniqueValues'
 import { useLeadCounts } from '@/hooks/useLeadCounts'
@@ -117,6 +118,9 @@ export function FilterPanel() {
             onChange={setRegion}
             isLoading={isLoadingValues}
           />
+
+          {/* Custom Field Filters */}
+          <CustomFieldFilters />
         </div>
       </CardContent>
     </Card>

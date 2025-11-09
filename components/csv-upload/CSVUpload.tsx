@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, ChangeEvent } from 'react'
+import { useState, useEffect, ChangeEvent } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Upload, FileSpreadsheet, X, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react'
@@ -18,9 +18,41 @@ export function CSVUpload({ onComplete }: CSVUploadProps) {
   const [csvData, setCSVData] = useState<any[]>([])
   const [csvHeaders, setCSVHeaders] = useState<string[]>([])
   const [mappings, setMappings] = useState<CSVMapping[]>([])
-  const [step, setStep] = useState<'upload' | 'map' | 'preview' | 'importing'>('upload')
+  const [step, setStep] = useState<'bucket' | 'upload' | 'map' | 'preview' | 'importing'>('bucket')
   const [importResult, setImportResult] = useState<ImportResult | null>(null)
   const [error, setError] = useState<string>('')
+  const [buckets, setBuckets] = useState<any[]>([])
+  const [selectedBucket, setSelectedBucket] = useState<string>('')
+  const [customFields, setCustomFields] = useState<any[]>([])
+
+  // Load buckets on mount
+  useEffect(() => {
+    loadBuckets()
+  }, [])
+
+  const loadBuckets = async () => {
+    const { data } = await supabase
+      .from('lead_buckets')
+      .select('*')
+      .eq('is_active', true)
+      .order('name')
+    
+    if (data) {
+      setBuckets(data)
+    }
+  }
+
+  const loadCustomFields = async (bucketId: string) => {
+    const { data } = await supabase
+      .from('custom_fields')
+      .select('*')
+      .eq('bucket_id', bucketId)
+      .order('display_order')
+    
+    if (data) {
+      setCustomFields(data)
+    }
+  }
 
   // Standard lead fields
   const leadFields = [
@@ -143,6 +175,7 @@ export function CSVUpload({ onComplete }: CSVUploadProps) {
           // Map CSV data to lead object
           const leadData: any = {
             created_by: user?.id,
+            bucket_id: selectedBucket || null,
             custom_fields: {}
           }
           
@@ -152,7 +185,9 @@ export function CSVUpload({ onComplete }: CSVUploadProps) {
             const value = row[mapping.csvColumn]
             
             if (mapping.isCustomField) {
-              leadData.custom_fields[mapping.leadField] = value
+              // Remove 'custom_' prefix for storage
+              const fieldName = mapping.leadField.replace('custom_', '')
+              leadData.custom_fields[fieldName] = value
             } else {
               // Transform value based on field type
               if (mapping.leadField === 'value' || mapping.leadField === 'priority') {
@@ -193,14 +228,64 @@ export function CSVUpload({ onComplete }: CSVUploadProps) {
     }
   }
 
+  const handleBucketSelect = async (bucketId: string) => {
+    setSelectedBucket(bucketId)
+    await loadCustomFields(bucketId)
+    setStep('upload')
+  }
+
   const reset = () => {
     setFile(null)
     setCSVData([])
     setCSVHeaders([])
     setMappings([])
-    setStep('upload')
+    setStep('bucket')
     setImportResult(null)
     setError('')
+    setSelectedBucket('')
+    setCustomFields([])
+  }
+
+  // Bucket selection step
+  if (step === 'bucket') {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Select Lead Bucket</CardTitle>
+          <p className="text-sm text-gray-600">
+            Choose which bucket template to use for importing these leads
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {buckets.length === 0 ? (
+            <p className="text-center text-gray-600 py-8">
+              No buckets available. Please create a bucket first.
+            </p>
+          ) : (
+            buckets.map(bucket => (
+              <button
+                key={bucket.id}
+                onClick={() => handleBucketSelect(bucket.id)}
+                className="w-full text-left p-4 border-2 rounded-lg hover:border-blue-500 transition-colors"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-semibold">{bucket.name}</h3>
+                    <p className="text-sm text-gray-600">{bucket.description}</p>
+                  </div>
+                  {bucket.color && (
+                    <div
+                      className="w-4 h-4 rounded-full"
+                      style={{ backgroundColor: bucket.color }}
+                    />
+                  )}
+                </div>
+              </button>
+            ))
+          )}
+        </CardContent>
+      </Card>
+    )
   }
 
   if (step === 'importing') {
@@ -292,7 +377,10 @@ export function CSVUpload({ onComplete }: CSVUploadProps) {
                 <div className="flex-1">
                   <select
                     value={mapping.leadField}
-                    onChange={(e) => handleMappingChange(mapping.csvColumn, e.target.value, false)}
+                    onChange={(e) => {
+                      const isCustom = e.target.value.startsWith('custom_')
+                      handleMappingChange(mapping.csvColumn, e.target.value, isCustom)
+                    }}
                     className="w-full px-3 py-2 border rounded-lg"
                   >
                     <option value="">-- Skip this column --</option>
@@ -303,11 +391,15 @@ export function CSVUpload({ onComplete }: CSVUploadProps) {
                         </option>
                       ))}
                     </optgroup>
-                    <optgroup label="Custom Fields">
-                      <option value={`custom_${mapping.csvColumn}`}>
-                        Custom: {mapping.csvColumn}
-                      </option>
-                    </optgroup>
+                    {customFields.length > 0 && (
+                      <optgroup label="Custom Fields">
+                        {customFields.map(field => (
+                          <option key={field.id} value={`custom_${field.name}`}>
+                            {field.label} ({field.field_type})
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
                   </select>
                 </div>
               </div>

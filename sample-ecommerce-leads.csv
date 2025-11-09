@@ -1,0 +1,6 @@
+name,email,phone,status,category,region,value,product_category
+John Doe,john@example.com,555-0101,new,E-commerce,Mumbai,50000,Electronics
+Jane Smith,jane@example.com,555-0102,contacted,E-commerce,Delhi,75000,Fashion
+Bob Johnson,bob@example.com,555-0103,qualified,E-commerce,Bengaluru,100000,Home & Garden
+Alice Williams,alice@example.com,555-0104,new,E-commerce,Chennai,45000,Electronics
+Charlie Brown,charlie@example.com,555-0105,contacted,E-commerce,Pune,60000,Fashion

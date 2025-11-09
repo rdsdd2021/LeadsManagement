@@ -92,6 +92,9 @@ export default function Home() {
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                               Value
                             </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                              Custom Fields
+                            </th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
@@ -121,6 +124,19 @@ export default function Home() {
                               </td>
                               <td className="px-4 py-3 text-sm text-gray-600">
                                 ${lead.value.toFixed(2)}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-600">
+                                {lead.custom_fields && Object.keys(lead.custom_fields).length > 0 ? (
+                                  <div className="flex flex-wrap gap-1">
+                                    {Object.entries(lead.custom_fields).map(([key, value]) => (
+                                      <span key={key} className="text-xs bg-gray-100 px-2 py-1 rounded">
+                                        {key}: {String(value)}
+                                      </span>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  '-'
+                                )}
                               </td>
                             </tr>
                           ))}
