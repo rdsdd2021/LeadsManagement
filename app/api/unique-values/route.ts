@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
         const { data, error } = await supabaseServer
           .from('leads')
           .select(field)
+          .limit(pageSize)
           .range(from, from + pageSize - 1)
         
         if (error) {

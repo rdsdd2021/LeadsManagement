@@ -89,7 +89,8 @@ export async function POST(request: NextRequest) {
 
       let iterations = 0
       while (hasMore && iterations < maxIterations) {
-        const { data, error } = await query.range(from, from + pageSize - 1)
+        // IMPORTANT: Must use .limit() to override Supabase's 1000 row default
+        const { data, error } = await query.limit(pageSize).range(from, from + pageSize - 1)
         
         if (error) {
           console.error(`❌ Error fetching ${field}:`, error)
@@ -147,7 +148,8 @@ export async function POST(request: NextRequest) {
       const maxIterations = 1000
       
       while (hasMore && iterations < maxIterations) {
-        const { data, error } = await query.range(from, from + pageSize - 1)
+        // IMPORTANT: Must use .limit() to override Supabase's 1000 row default
+        const { data, error } = await query.limit(pageSize).range(from, from + pageSize - 1)
         
         if (error) break
         
