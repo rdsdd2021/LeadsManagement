@@ -1,4 +1,6 @@
--- Update filter counts function with timeout
+-- Fix filter counts function - change from STABLE to VOLATILE to allow SET statement
+DROP FUNCTION IF EXISTS get_filter_counts(TEXT[], TEXT[], TEXT[], TEXT[], TEXT, TIMESTAMPTZ, TIMESTAMPTZ, JSONB);
+
 CREATE OR REPLACE FUNCTION get_filter_counts(
   p_school TEXT[] DEFAULT '{}',
   p_district TEXT[] DEFAULT '{}',
@@ -172,7 +174,7 @@ BEGIN
     'district', COALESCE(v_district_counts, '{}'::jsonb),
     'gender', COALESCE(v_gender_counts, '{}'::jsonb),
     'stream', COALESCE(v_stream_counts, '{}'::jsonb),
-    'customFields', v_custom_field_counts
+    'customFields', COALESCE(v_custom_field_counts, '{}'::jsonb)
   );
 
   RETURN v_result;

@@ -24,7 +24,7 @@ export function useFilterValueCounts() {
     debouncedCustomFilters: customFilters,
   } = useFilterStore()
 
-  const queryKey = ['filter-value-counts', { school, district, gender, stream, searchQuery, dateRange, customFilters }]
+  const queryKey = ['filter-counts', { school, district, gender, stream, searchQuery, dateRange, customFilters }]
 
   const query = useQuery({
     queryKey,
@@ -59,18 +59,26 @@ export function useFilterValueCounts() {
 
       return data
     },
-    staleTime: 2 * 60 * 1000, // Cache for 2 minutes (longer since data doesn't change often)
-    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
-    refetchOnWindowFocus: false, // Don't refetch when window regains focus
-    refetchOnMount: false, // Don't refetch on component mount if data exists
+    staleTime: 30 * 1000, // Cache for 30 seconds to prevent excessive refetching
+    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
+    refetchOnWindowFocus: false, // Disable to prevent request cancellations
+    retry: 1, // Only retry once on failure
+    retryDelay: 1000, // Wait 1 second before retry
+    enabled: true, // Always enabled
   })
 
   // Set up realtime subscription to invalidate filter counts when leads change
   useRealtime({
     table: 'leads',
-    queryKey,
-    enabled: false, // Disabled until realtime is enabled in Supabase dashboard
+    queryKey: ['filter-counts'], // Use stable key to match manual invalidations
+    enabled: true, // Re-enabled after fixing publication settings
   })
+
+  // No polling - updates happen via:
+  // 1. Realtime events (instant)
+  // 2. Manual invalidation after bulk operations (immediate)
+  // 3. Window focus (when returning to tab)
+  // This prevents database overload with many concurrent users
 
   return query
 }

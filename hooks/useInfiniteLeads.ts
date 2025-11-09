@@ -27,6 +27,11 @@ interface Lead {
   // Assignment fields (set by admin/manager)
   assigned_to: string | null
   assignment_date: string | null
+  assigned_user?: {
+    id: string
+    email: string
+    full_name: string | null
+  } | null
 }
 
 export function useInfiniteLeads() {
@@ -63,10 +68,13 @@ export function useInfiniteLeads() {
       // Get current user
       const { data: { user } } = await supabase.auth.getUser()
 
-      // Start building the query
+      // Start building the query with user join
       let supabaseQuery = supabase
         .from('leads')
-        .select('*', { count: 'exact' })
+        .select(`
+          *,
+          assigned_user:users!assigned_to(id, email, full_name)
+        `, { count: 'exact' })
         .order('created_at', { ascending: false })
 
       // Check if user is admin

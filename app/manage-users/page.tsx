@@ -8,11 +8,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { supabase } from '@/lib/supabase'
-import { Plus, Trash2, Loader2, Users, Shield } from 'lucide-react'
+import { Plus, Trash2, Loader2, Users, Shield, Pencil } from 'lucide-react'
 import { AddUserDialog } from '@/components/users/AddUserDialog'
+import { EditUserDialog } from '@/components/users/EditUserDialog'
 
 interface User {
   id: string
+  name: string | null
   email: string
   role: string
   created_at: string
@@ -24,6 +26,7 @@ export default function ManageUsersPage() {
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [showAddUser, setShowAddUser] = useState(false)
+  const [editingUser, setEditingUser] = useState<User | null>(null)
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -155,6 +158,9 @@ export default function ManageUsersPage() {
                 <thead className="bg-gray-50 border-y">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Name
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                       Email
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
@@ -172,39 +178,42 @@ export default function ManageUsersPage() {
                   {users.map((u) => (
                     <tr key={u.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm font-medium">
-                        {u.email}
+                        {u.name || <span className="text-gray-400 italic">No name</span>}
                         {u.id === user?.id && (
                           <Badge variant="outline" className="ml-2">You</Badge>
                         )}
                       </td>
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        {u.email}
+                      </td>
                       <td className="px-4 py-3 text-sm">
-                        <select
-                          value={u.role}
-                          onChange={(e) => handleUpdateRole(u.id, e.target.value)}
-                          disabled={u.id === user?.id}
-                          className={`px-3 py-1 rounded-md text-xs font-medium ${getRoleBadgeColor(u.role)} ${
-                            u.id === user?.id ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
-                          }`}
-                        >
-                          <option value="admin">Admin</option>
-                          <option value="manager">Manager</option>
-                          <option value="sales_rep">Sales Rep</option>
-                          <option value="viewer">Viewer</option>
-                        </select>
+                        <Badge className={getRoleBadgeColor(u.role)}>
+                          {u.role.replace('_', ' ')}
+                        </Badge>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">
                         {new Date(u.created_at).toLocaleDateString()}
                       </td>
                       <td className="px-4 py-3 text-sm">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDeleteUser(u.id, u.email)}
-                          disabled={u.id === user?.id}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50 disabled:opacity-50"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setEditingUser(u)}
+                            className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteUser(u.id, u.email)}
+                            disabled={u.id === user?.id}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50 disabled:opacity-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -244,6 +253,15 @@ export default function ManageUsersPage() {
         open={showAddUser}
         onOpenChange={setShowAddUser}
         onSuccess={loadUsers}
+      />
+
+      {/* Edit User Dialog */}
+      <EditUserDialog
+        user={editingUser}
+        open={!!editingUser}
+        onOpenChange={(open) => !open && setEditingUser(null)}
+        onSuccess={loadUsers}
+        currentUserId={user?.id || ''}
       />
     </div>
   )

@@ -14,12 +14,15 @@ import { Loader2, CheckSquare, Square, List, Infinity, MousePointerClick } from 
 import { BulkAssignDialog } from '@/components/leads/BulkAssignDialog'
 import { BulkSelectDialog } from '@/components/leads/BulkSelectDialog'
 import { BulkActionsMenu } from '@/components/leads/BulkActionsMenu'
+import { BulkActionProgress } from '@/components/leads/BulkActionProgress'
 import { useBulkAssign } from '@/hooks/useBulkAssign'
 import { useBulkDelete } from '@/hooks/useBulkDelete'
 import { useQueryClient } from '@tanstack/react-query'
 import { Pagination } from '@/components/pagination/Pagination'
 import { InfiniteScroll } from '@/components/pagination/InfiniteScroll'
 import { useFilterStore } from '@/stores/filterStore'
+import { supabase } from '@/lib/supabase'
+import { RealtimeStatus } from '@/components/debug/RealtimeStatus'
 
 export default function Home() {
   const { user, loading } = useAuth()
@@ -46,6 +49,20 @@ export default function Home() {
   const [showBulkAssign, setShowBulkAssign] = useState(false)
   const [bulkSelectedCount, setBulkSelectedCount] = useState(0)
   const [showSlowQueryWarning, setShowSlowQueryWarning] = useState(false)
+  const [bulkProgress, setBulkProgress] = useState<{
+    open: boolean
+    action: 'assign' | 'delete'
+    total: number
+    processed: number
+    status: 'processing' | 'success' | 'error'
+    error?: string
+  }>({
+    open: false,
+    action: 'delete',
+    total: 0,
+    processed: 0,
+    status: 'processing',
+  })
   const { bulkAssign, loading: assignLoading } = useBulkAssign()
   const { bulkDelete, loading: deleteLoading } = useBulkDelete()
   const queryClient = useQueryClient()
@@ -130,6 +147,9 @@ export default function Home() {
         queryClient.invalidateQueries({ queryKey: ['leads'] })
       }
       
+      // Invalidate filter counts to refresh the sidebar
+      queryClient.invalidateQueries({ queryKey: ['filter-counts'] })
+      
       // Clear selection
       setSelectedLeads(new Set())
       setBulkSelectedCount(0)
@@ -155,21 +175,37 @@ export default function Home() {
     
     if (!confirmed) return
 
+    // Show progress dialog
+    setBulkProgress({
+      open: true,
+      action: 'delete',
+      total: effectiveCount,
+      processed: 0,
+      status: 'processing',
+    })
+
     try {
-      let leadIds: string[]
+      let deletedCount: number
       
       if (selectedLeads.size > 0) {
-        // Use manually selected leads
-        leadIds = Array.from(selectedLeads)
+        // Use manually selected leads (client-side)
+        deletedCount = await bulkDelete(Array.from(selectedLeads))
       } else if (bulkSelectedCount > 0) {
-        // Get lead IDs from filtered results
-        const leadsToDelete = leads.slice(0, bulkSelectedCount)
-        leadIds = leadsToDelete.map(lead => lead.id)
+        // Use edge function with count (server-side)
+        deletedCount = await bulkDelete(bulkSelectedCount)
       } else {
         return
       }
+      
+      // Update progress to success
+      setBulkProgress(prev => ({
+        ...prev,
+        processed: deletedCount,
+        status: 'success',
+      }))
 
-      await bulkDelete(leadIds)
+      // Wait a moment to show success
+      await new Promise(resolve => setTimeout(resolve, 1500))
       
       // Refresh data
       if (paginationMode === 'infinite') {
@@ -180,13 +216,27 @@ export default function Home() {
         queryClient.invalidateQueries({ queryKey: ['leads'] })
       }
       
+      // Invalidate filter counts to refresh the sidebar
+      queryClient.invalidateQueries({ queryKey: ['filter-counts'] })
+      
       // Clear selection
       setSelectedLeads(new Set())
       setBulkSelectedCount(0)
       
-      alert(`Successfully deleted ${leadIds.length} lead(s)`)
+      // Close progress dialog
+      setBulkProgress(prev => ({ ...prev, open: false }))
     } catch (err: any) {
-      alert(`Failed to delete leads: ${err.message}`)
+      console.error('Deletion failed:', err)
+      setBulkProgress(prev => ({
+        ...prev,
+        status: 'error',
+        error: err.message || 'Failed to delete leads',
+      }))
+      
+      // Auto-close error after 3 seconds
+      setTimeout(() => {
+        setBulkProgress(prev => ({ ...prev, open: false }))
+      }, 3000)
     }
   }
 
@@ -229,6 +279,7 @@ export default function Home() {
         <div className="grid grid-cols-12 gap-6">
           {/* Filter Sidebar */}
           <div className="col-span-12 lg:col-span-3">
+            <RealtimeStatus />
             <FilterPanel />
           </div>
 
@@ -423,8 +474,8 @@ export default function Home() {
                                     {lead.stream || '-'}
                                   </td>
                                   <td className="px-4 py-3 text-sm text-gray-600">
-                                    {lead.assigned_to ? (
-                                      <Badge variant="outline">Assigned</Badge>
+                                    {lead.assigned_user ? (
+                                      <span className="font-medium">{lead.assigned_user.full_name || lead.assigned_user.email}</span>
                                     ) : (
                                       <span className="text-gray-400">Unassigned</span>
                                     )}
@@ -517,8 +568,8 @@ export default function Home() {
                                   {lead.stream || '-'}
                                 </td>
                                 <td className="px-4 py-3 text-sm text-gray-600">
-                                  {lead.assigned_to ? (
-                                    <Badge variant="outline">Assigned</Badge>
+                                  {lead.assigned_user ? (
+                                    <span className="font-medium">{lead.assigned_user.full_name || lead.assigned_user.email}</span>
                                   ) : (
                                     <span className="text-gray-400">Unassigned</span>
                                   )}
@@ -580,6 +631,16 @@ export default function Home() {
           onAssign={handleBulkAssign}
         />
       )}
+
+      {/* Bulk Action Progress Dialog */}
+      <BulkActionProgress
+        open={bulkProgress.open}
+        action={bulkProgress.action}
+        total={bulkProgress.total}
+        processed={bulkProgress.processed}
+        status={bulkProgress.status}
+        error={bulkProgress.error}
+      />
     </div>
   )
 }

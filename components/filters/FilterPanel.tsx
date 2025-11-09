@@ -1,10 +1,12 @@
 'use client'
 
+import { useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
 import { FilterSection } from './FilterSection'
+import { VirtualizedFilterSection } from './VirtualizedFilterSection'
 import { SearchBar } from './SearchBar'
 import { CustomFieldFilters } from './CustomFieldFilters'
 import { useFilterStore } from '@/stores/filterStore'
@@ -20,12 +22,18 @@ export function FilterPanel() {
     gender,
     stream,
     searchQuery,
+    debouncedSchool,
+    debouncedDistrict,
+    debouncedGender,
+    debouncedStream,
+    debouncedSearchQuery,
     setSchool,
     setDistrict,
     setGender,
     setStream,
     setSearchQuery,
     clearAllFilters,
+    applyDebouncedFilters,
   } = useFilterStore()
 
   const { data: counts } = useLeadCounts()
@@ -34,31 +42,36 @@ export function FilterPanel() {
   
   const isLoadingValues = isLoadingCounts || isLoadingUnique
   
-  // Merge all unique values with counts, sorted by count
-  const sortByCount = (allValues: string[], counts: Record<string, number>) => {
-    if (!allValues || !Array.isArray(allValues)) return []
+  // Memoize the sorting function to prevent recalculation on every render
+  const uniqueValues = useMemo(() => {
+    if (!allUniqueValues) return null
     
-    // Create array of [value, count] pairs
-    const withCounts = allValues.map(value => ({
-      value,
-      count: counts?.[value] || 0
-    }))
+    const sortByCount = (allValues: string[], counts: Record<string, number>, minCount = 1) => {
+      if (!allValues || !Array.isArray(allValues)) return []
+      
+      // Create array of [value, count] pairs
+      const withCounts = allValues.map(value => ({
+        value,
+        count: counts?.[value] || 0
+      }))
+      
+      // Filter by minimum count, then sort by count (highest first), then alphabetically
+      return withCounts
+        .filter(item => item.count >= minCount) // Filter by minimum count
+        .sort((a, b) => {
+          if (b.count !== a.count) return b.count - a.count
+          return a.value.localeCompare(b.value)
+        })
+        .map(item => item.value)
+    }
     
-    // Sort by count (highest first), then alphabetically
-    return withCounts
-      .sort((a, b) => {
-        if (b.count !== a.count) return b.count - a.count
-        return a.value.localeCompare(b.value)
-      })
-      .map(item => item.value)
-  }
-  
-  const uniqueValues = allUniqueValues ? {
-    school: sortByCount(allUniqueValues.school, valueCounts?.school || {}),
-    district: sortByCount(allUniqueValues.district, valueCounts?.district || {}),
-    gender: sortByCount(allUniqueValues.gender, valueCounts?.gender || {}),
-    stream: sortByCount(allUniqueValues.stream, valueCounts?.stream || {}),
-  } : null
+    return {
+      school: sortByCount(allUniqueValues.school, valueCounts?.school || {}, 20), // Only show schools with 20+ leads
+      district: sortByCount(allUniqueValues.district, valueCounts?.district || {}),
+      gender: sortByCount(allUniqueValues.gender, valueCounts?.gender || {}),
+      stream: sortByCount(allUniqueValues.stream, valueCounts?.stream || {}),
+    }
+  }, [allUniqueValues, valueCounts])
 
   const hasActiveFilters =
     school.length > 0 ||
@@ -69,6 +82,14 @@ export function FilterPanel() {
 
   const totalSelectedFilters =
     school.length + district.length + gender.length + stream.length + (searchQuery ? 1 : 0)
+
+  // Check if there are unapplied changes
+  const hasUnappliedChanges =
+    JSON.stringify(school) !== JSON.stringify(debouncedSchool) ||
+    JSON.stringify(district) !== JSON.stringify(debouncedDistrict) ||
+    JSON.stringify(gender) !== JSON.stringify(debouncedGender) ||
+    JSON.stringify(stream) !== JSON.stringify(debouncedStream) ||
+    searchQuery !== debouncedSearchQuery
 
   return (
     <Card className="h-full">
@@ -113,6 +134,14 @@ export function FilterPanel() {
             )
           ) : null}
         </div>
+
+        {/* Show loading indicator when filters are being applied */}
+        {hasUnappliedChanges && (
+          <div className="flex items-center justify-center gap-2 mt-3 text-sm text-muted-foreground">
+            <div className="h-3 w-3 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
+            <span>Applying filters...</span>
+          </div>
+        )}
       </CardHeader>
 
       <Separator />
@@ -129,7 +158,8 @@ export function FilterPanel() {
 
         {/* Filter Sections */}
         <div className="space-y-4">
-          <FilterSection
+          {/* Virtualized School Filter with Search */}
+          <VirtualizedFilterSection
             title="School"
             options={uniqueValues?.school || []}
             selectedValues={school}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useCallback } from 'react'
+import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { RealtimeChannel } from '@supabase/supabase-js'
@@ -19,16 +19,6 @@ export function useRealtime({
   filter,
 }: UseRealtimeOptions) {
   const queryClient = useQueryClient()
-
-  const handleRealtimeEvent = useCallback(
-    (payload: any) => {
-      console.log('🔔 Realtime event received:', payload)
-
-      // Invalidate and refetch the query
-      queryClient.invalidateQueries({ queryKey })
-    },
-    [queryClient, queryKey]
-  )
 
   useEffect(() => {
     if (!enabled) return
@@ -49,13 +39,22 @@ export function useRealtime({
       channelConfig.filter = filter
     }
 
+    // Create event handler inline to capture current queryKey
+    const eventHandler = (payload: any) => {
+      console.log('🔔 Realtime event received:', payload)
+      queryClient.invalidateQueries({ queryKey })
+    }
+
     // Subscribe to changes
+    // Use a stable but unique channel name per table
+    const channelName = `realtime-${table}`
+    
     channel = supabase
-      .channel(`${table}-changes-${Date.now()}`) // Unique channel name to avoid conflicts
+      .channel(channelName)
       .on(
         'postgres_changes',
         channelConfig,
-        handleRealtimeEvent
+        eventHandler
       )
       .subscribe((status, err) => {
         console.log('📊 Realtime subscription status:', status)
@@ -79,5 +78,7 @@ export function useRealtime({
         supabase.removeChannel(channel)
       }
     }
-  }, [table, filter, enabled, handleRealtimeEvent])
+    // Only re-run when table, filter, or enabled changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [table, filter, enabled])
 }

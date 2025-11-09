@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabase'
+import { useRealtime } from './useRealtime'
 
 interface UniqueValues {
   school: string[]
@@ -11,8 +11,10 @@ interface UniqueValues {
 }
 
 export function useUniqueValues() {
-  return useQuery({
-    queryKey: ['unique-values'],
+  const queryKey = ['unique-values']
+  
+  const query = useQuery({
+    queryKey,
     queryFn: async () => {
       console.log('🔍 Fetching unique filter values from API...')
 
@@ -34,7 +36,25 @@ export function useUniqueValues() {
 
       return data
     },
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
-    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+    staleTime: 60 * 1000, // Cache for 60 seconds to prevent excessive refetching
+    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
+    refetchOnWindowFocus: false, // Disable to prevent request cancellations
+    retry: 1, // Only retry once on failure
+    retryDelay: 1000, // Wait 1 second before retry
   })
+
+  // Set up realtime subscription to invalidate unique values when leads change
+  useRealtime({
+    table: 'leads',
+    queryKey,
+    enabled: true, // Re-enabled after fixing publication settings
+  })
+
+  // No polling - updates happen via:
+  // 1. Realtime events (instant)
+  // 2. Manual invalidation after bulk operations (immediate)
+  // 3. Window focus (when returning to tab)
+  // This prevents database overload with many concurrent users
+
+  return query
 }

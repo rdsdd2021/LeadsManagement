@@ -51,10 +51,13 @@ export async function POST(request: NextRequest) {
 
     // Create request promise
     const requestPromise = (async () => {
-      // Start building the query
+      // Start building the query with user join
     let query = supabaseServer
       .from('leads')
-      .select('*', { count: 'exact' })
+      .select(`
+        *,
+        assigned_user:users!assigned_to(id, email, full_name)
+      `, { count: 'exact' })
       .order('created_at', { ascending: false })
 
     // Apply filters

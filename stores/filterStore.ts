@@ -52,7 +52,7 @@ interface FilterState {
 
 // Debounce timer
 let debounceTimer: NodeJS.Timeout | null = null
-const DEBOUNCE_DELAY = 1500 // 1.5 second delay
+const DEBOUNCE_DELAY = 800 // 800ms delay - fast enough to feel responsive, slow enough to batch changes
 
 export const useFilterStore = create<FilterState>()(
   persist(
@@ -99,10 +99,10 @@ export const useFilterStore = create<FilterState>()(
         })
       },
 
-      // Actions with debouncing
+      // Actions - Auto-apply after delay
       setSchool: (school) => {
         set({ school, page: 0 })
-        
+        // Auto-apply after delay
         if (debounceTimer) clearTimeout(debounceTimer)
         debounceTimer = setTimeout(() => {
           get().applyDebouncedFilters()
@@ -111,7 +111,7 @@ export const useFilterStore = create<FilterState>()(
       
       setDistrict: (district) => {
         set({ district, page: 0 })
-        
+        // Auto-apply after delay
         if (debounceTimer) clearTimeout(debounceTimer)
         debounceTimer = setTimeout(() => {
           get().applyDebouncedFilters()
@@ -120,7 +120,7 @@ export const useFilterStore = create<FilterState>()(
       
       setGender: (gender) => {
         set({ gender, page: 0 })
-        
+        // Auto-apply after delay
         if (debounceTimer) clearTimeout(debounceTimer)
         debounceTimer = setTimeout(() => {
           get().applyDebouncedFilters()
@@ -129,7 +129,7 @@ export const useFilterStore = create<FilterState>()(
       
       setStream: (stream) => {
         set({ stream, page: 0 })
-        
+        // Auto-apply after delay
         if (debounceTimer) clearTimeout(debounceTimer)
         debounceTimer = setTimeout(() => {
           get().applyDebouncedFilters()
@@ -138,7 +138,7 @@ export const useFilterStore = create<FilterState>()(
       
       setSearchQuery: (searchQuery) => {
         set({ searchQuery, page: 0 })
-        
+        // Auto-apply after delay
         if (debounceTimer) clearTimeout(debounceTimer)
         debounceTimer = setTimeout(() => {
           get().applyDebouncedFilters()
@@ -147,7 +147,7 @@ export const useFilterStore = create<FilterState>()(
       
       setDateRange: (from, to) => {
         set({ dateRange: { from, to }, page: 0 })
-        
+        // Auto-apply after delay
         if (debounceTimer) clearTimeout(debounceTimer)
         debounceTimer = setTimeout(() => {
           get().applyDebouncedFilters()
@@ -159,7 +159,7 @@ export const useFilterStore = create<FilterState>()(
           customFilters: { ...state.customFilters, [key]: value },
           page: 0,
         }))
-        
+        // Auto-apply after delay
         if (debounceTimer) clearTimeout(debounceTimer)
         debounceTimer = setTimeout(() => {
           get().applyDebouncedFilters()
@@ -171,11 +171,6 @@ export const useFilterStore = create<FilterState>()(
           const { [key]: removed, ...rest } = state.customFilters
           return { customFilters: rest, page: 0 }
         })
-        
-        if (debounceTimer) clearTimeout(debounceTimer)
-        debounceTimer = setTimeout(() => {
-          get().applyDebouncedFilters()
-        }, DEBOUNCE_DELAY)
       },
       
       setPage: (page) => set({ page }),

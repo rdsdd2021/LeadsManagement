@@ -33,6 +33,7 @@ export function FilterSection({
   const [isOpen, setIsOpen] = useState(true)
 
   const handleToggle = (option: string) => {
+    // Optimistic update - UI responds immediately
     if (selectedValues.includes(option)) {
       // Remove from selected
       onChange(selectedValues.filter((v) => v !== option))

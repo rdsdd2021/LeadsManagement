@@ -27,6 +27,11 @@ interface Lead {
   // Assignment fields (set by admin/manager)
   assigned_to: string | null
   assignment_date: string | null
+  assigned_user?: {
+    id: string
+    email: string
+    full_name: string | null
+  } | null
 }
 
 export function useLeads(showOnlyAssigned: boolean = false) {

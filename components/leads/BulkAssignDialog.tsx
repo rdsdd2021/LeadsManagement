@@ -37,8 +37,6 @@ export function BulkAssignDialog({
   selectedLeadIds,
   onAssign,
 }: BulkAssignDialogProps) {
-  const [step, setStep] = useState<'count' | 'distribution'>('count')
-  const [assignCount, setAssignCount] = useState<number>(totalFilteredCount)
   const [distributionMode, setDistributionMode] = useState<'equal' | 'custom'>('equal')
   const [users, setUsers] = useState<User[]>([])
   const [selectedUsers, setSelectedUsers] = useState<string[]>([])
@@ -46,15 +44,16 @@ export function BulkAssignDialog({
   const [loading, setLoading] = useState(false)
   const [loadingUsers, setLoadingUsers] = useState(false)
 
+  // Use the count that was already selected
+  const assignCount = selectedLeadIds.length > 0 ? selectedLeadIds.length : totalFilteredCount
+
   useEffect(() => {
     if (open) {
       loadUsers()
-      setAssignCount(selectedLeadIds.length > 0 ? selectedLeadIds.length : totalFilteredCount)
-      setStep('count')
       setSelectedUsers([])
       setCustomCounts({})
     }
-  }, [open, totalFilteredCount, selectedLeadIds])
+  }, [open])
 
   const loadUsers = async () => {
     setLoadingUsers(true)
@@ -62,7 +61,7 @@ export function BulkAssignDialog({
       const { data, error } = await supabase
         .from('users')
         .select('id, email, full_name, role')
-        .eq('role', 'user')
+        .in('role', ['admin', 'manager', 'sales_rep'])
         .order('full_name')
 
       if (!error && data) {
@@ -75,17 +74,7 @@ export function BulkAssignDialog({
     }
   }
 
-  const handleNext = () => {
-    if (step === 'count') {
-      setStep('distribution')
-    }
-  }
 
-  const handleBack = () => {
-    if (step === 'distribution') {
-      setStep('count')
-    }
-  }
 
   const calculateDistribution = (): UserAssignment[] => {
     if (selectedUsers.length === 0) return []
@@ -147,63 +136,29 @@ export function BulkAssignDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>
-            {step === 'count' ? 'Select Leads to Assign' : 'Distribute Leads to Users'}
-          </DialogTitle>
+          <DialogTitle>Assign {assignCount} Leads to Users</DialogTitle>
           <DialogDescription>
-            {step === 'count' 
-              ? `${totalFilteredCount} leads match your current filters`
-              : 'Choose how to distribute the selected leads among users'
-            }
+            Choose how to distribute the selected leads among users
           </DialogDescription>
         </DialogHeader>
 
-        {step === 'count' && (
-          <div className="space-y-6 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="assignCount">Number of Leads to Assign</Label>
-              <Input
-                id="assignCount"
-                type="number"
-                min={1}
-                max={totalFilteredCount}
-                value={assignCount}
-                onChange={(e) => setAssignCount(Math.min(parseInt(e.target.value) || 0, totalFilteredCount))}
-              />
-              <p className="text-sm text-gray-500">
-                Maximum: {totalFilteredCount} leads
-                {selectedLeadIds.length > 0 && ` (${selectedLeadIds.length} selected on current page)`}
-              </p>
-            </div>
-
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <div className="flex items-start gap-3">
-                <Users className="h-5 w-5 text-blue-600 mt-0.5" />
-                <div className="text-sm text-blue-900">
-                  <p className="font-medium mb-1">How it works:</p>
-                  <ul className="space-y-1 text-blue-800">
-                    <li>• Leads will be assigned from your filtered results</li>
-                    <li>• Assignment happens in order (newest first)</li>
-                    <li>• You can distribute equally or set custom counts per user</li>
-                  </ul>
-                </div>
+        <div className="space-y-6 py-4">
+          {/* Info Banner */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <Users className="h-5 w-5 text-blue-600 mt-0.5" />
+              <div className="text-sm text-blue-900">
+                <p className="font-medium mb-1">Assigning {assignCount} leads</p>
+                <ul className="space-y-1 text-blue-800">
+                  <li>• Leads will be assigned from your filtered results</li>
+                  <li>• Assignment happens in order (newest first)</li>
+                  <li>• You can distribute equally or set custom counts per user</li>
+                </ul>
               </div>
             </div>
-
-            <div className="flex justify-end gap-3">
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleNext} disabled={assignCount < 1}>
-                Next: Select Users
-              </Button>
-            </div>
           </div>
-        )}
 
-        {step === 'distribution' && (
-          <div className="space-y-6 py-4">
-            {loadingUsers ? (
+          {loadingUsers ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin" />
               </div>
@@ -316,27 +271,21 @@ export function BulkAssignDialog({
                   </div>
                 )}
 
-                <div className="flex justify-between gap-3">
-                  <Button variant="outline" onClick={handleBack}>
-                    Back
+                <div className="flex justify-end gap-3">
+                  <Button variant="outline" onClick={() => onOpenChange(false)}>
+                    Cancel
                   </Button>
-                  <div className="flex gap-3">
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>
-                      Cancel
-                    </Button>
-                    <Button
-                      onClick={handleAssign}
-                      disabled={loading || selectedUsers.length === 0 || (distributionMode === 'custom' && totalCustomCount > assignCount)}
-                    >
-                      {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                      Assign Leads
-                    </Button>
-                  </div>
+                  <Button
+                    onClick={handleAssign}
+                    disabled={loading || selectedUsers.length === 0 || (distributionMode === 'custom' && totalCustomCount > assignCount)}
+                  >
+                    {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    Assign {assignCount} Leads
+                  </Button>
                 </div>
               </>
             )}
-          </div>
-        )}
+        </div>
       </DialogContent>
     </Dialog>
   )

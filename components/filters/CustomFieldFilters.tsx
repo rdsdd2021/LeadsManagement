@@ -36,31 +36,29 @@ export function CustomFieldFilters() {
   const loadCustomFieldsAndValues = async () => {
     setLoading(true)
     try {
-      // Load custom fields with increased timeout
+      console.log('🔍 Loading custom fields...')
+      
+      // Simplified query - just get custom fields without join
       const { data, error } = await supabase
         .from('custom_fields')
-        .select(`
-          id,
-          name,
-          label,
-          field_type,
-          options,
-          bucket_id,
-          lead_buckets!inner(is_active)
-        `)
-        .eq('lead_buckets.is_active', true)
+        .select('id, name, label, field_type, options, bucket_id')
         .order('label')
 
       if (error) {
         console.error('⚠️ Error loading custom fields:', error)
+        setLoading(false)
         return
       }
 
-      if (data) {
+      console.log('✅ Custom fields loaded:', data?.length || 0)
+
+      if (data && data.length > 0) {
         setCustomFields(data as any)
         
         // Load unique values for fields that don't have predefined options
         await loadUniqueValuesForFields(data as any)
+      } else {
+        console.log('ℹ️ No custom fields found')
       }
     } catch (err) {
       console.error('❌ Custom fields load failed:', err)
@@ -93,36 +91,56 @@ export function CustomFieldFilters() {
 
   // Get options for a field
   const getFieldOptions = (field: CustomField): string[] => {
+    console.log(`🔍 Getting options for field: ${field.name}`, {
+      fieldType: field.field_type,
+      predefinedOptions: field.options,
+      filterCountsForField: filterCounts?.customFields?.[field.name],
+      uniqueValuesForField: uniqueValues[field.name]
+    })
+    
     // Use predefined options if available
     if (field.field_type === 'select' && field.options) {
+      console.log(`✅ Using predefined options for ${field.name}:`, field.options)
       return field.options
     }
     
     // Use boolean options
     if (field.field_type === 'boolean') {
+      console.log(`✅ Using boolean options for ${field.name}`)
       return ['Yes', 'No']
     }
     
     // Use dynamic values from API counts
     if (filterCounts?.customFields?.[field.name]) {
-      return Object.keys(filterCounts.customFields[field.name]).sort()
+      const options = Object.keys(filterCounts.customFields[field.name]).sort()
+      console.log(`✅ Using filter counts for ${field.name}:`, options)
+      return options
     }
     
     // Fallback to extracted unique values
-    return uniqueValues[field.name] || []
+    const fallback = uniqueValues[field.name] || []
+    console.log(`⚠️ Using fallback for ${field.name}:`, fallback)
+    return fallback
   }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-4">
-        <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
-      </div>
+      <>
+        <Separator />
+        <div className="flex items-center justify-center py-4">
+          <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+          <span className="ml-2 text-sm text-muted-foreground">Loading custom fields...</span>
+        </div>
+      </>
     )
   }
 
   if (customFields.length === 0) {
+    console.log('ℹ️ No custom fields to display')
     return null // Don't show anything if no custom fields are defined
   }
+
+  console.log('📋 Rendering custom fields:', customFields.length)
 
   return (
     <>

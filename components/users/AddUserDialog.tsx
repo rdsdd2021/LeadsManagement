@@ -25,6 +25,7 @@ export function AddUserDialog({ open, onOpenChange, onSuccess }: AddUserDialogPr
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [formData, setFormData] = useState({
+    name: '',
     email: '',
     password: '',
     role: 'sales_rep'
@@ -36,34 +37,23 @@ export function AddUserDialog({ open, onOpenChange, onSuccess }: AddUserDialogPr
     setError('')
 
     try {
-      // Create auth user
+      // Create auth user - the trigger will automatically create the users table entry
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
         options: {
           data: {
-            role: formData.role
+            role: formData.role,
+            full_name: formData.name
           }
         }
       })
 
       if (authError) throw authError
 
-      if (authData.user) {
-        // Insert into users table
-        const { error: insertError } = await supabase
-          .from('users')
-          .insert({
-            id: authData.user.id,
-            email: formData.email,
-            role: formData.role
-          })
-
-        if (insertError) throw insertError
-      }
-
       // Reset form
       setFormData({
+        name: '',
         email: '',
         password: '',
         role: 'sales_rep'
@@ -91,13 +81,27 @@ export function AddUserDialog({ open, onOpenChange, onSuccess }: AddUserDialogPr
 
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
+              <Label htmlFor="name">Full Name *</Label>
+              <Input
+                id="name"
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="John Doe"
+                required
+              />
+            </div>
+
+            <div className="grid gap-2">
               <Label htmlFor="email">Email *</Label>
               <Input
                 id="email"
-                type="email"
+                type="text"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 placeholder="user@example.com"
+                pattern="[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+                title="Please enter a valid email address"
                 required
               />
             </div>

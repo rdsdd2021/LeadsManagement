@@ -11,9 +11,10 @@ const corsHeaders = {
 
 interface DeleteRequest {
   filters: {
-    status?: string[]
-    category?: string[]
-    region?: string[]
+    school?: string[]
+    district?: string[]
+    gender?: string[]
+    stream?: string[]
     searchQuery?: string
     dateRange?: {
       from?: string
@@ -84,51 +85,67 @@ serve(async (req) => {
       // Use pre-selected IDs
       leadIds = selectedIds
     } else {
-      // Build query with filters
-      let query = supabaseClient
-        .from('leads')
-        .select('id')
-        .order('created_at', { ascending: false })
+      // Fetch ALL lead IDs in batches (no 10k limit!)
+      leadIds = []
+      let from = 0
+      const pageSize = 1000
 
-      // Apply filters (same as assignment)
-      if (filters.status && filters.status.length > 0) {
-        query = query.in('status', filters.status)
-      }
-      if (filters.category && filters.category.length > 0) {
-        query = query.in('category', filters.category)
-      }
-      if (filters.region && filters.region.length > 0) {
-        query = query.in('region', filters.region)
-      }
-      if (filters.searchQuery?.trim()) {
-        query = query.or(
-          `name.ilike.%${filters.searchQuery}%,phone.ilike.%${filters.searchQuery}%`
-        )
-      }
-      if (filters.dateRange?.from) {
-        query = query.gte('created_at', filters.dateRange.from)
-      }
-      if (filters.dateRange?.to) {
-        query = query.lte('created_at', filters.dateRange.to)
+      while (leadIds.length < count) {
+        // Build query with filters for each batch
+        let query = supabaseClient
+          .from('leads')
+          .select('id')
+          .order('created_at', { ascending: false })
+
+        // Apply filters
+        if (filters.school && filters.school.length > 0) {
+          query = query.in('school', filters.school)
+        }
+        if (filters.district && filters.district.length > 0) {
+          query = query.in('district', filters.district)
+        }
+        if (filters.gender && filters.gender.length > 0) {
+          query = query.in('gender', filters.gender)
+        }
+        if (filters.stream && filters.stream.length > 0) {
+          query = query.in('stream', filters.stream)
+        }
+        if (filters.searchQuery?.trim()) {
+          query = query.or(
+            `name.ilike.%${filters.searchQuery}%,phone.ilike.%${filters.searchQuery}%`
+          )
+        }
+        if (filters.dateRange?.from) {
+          query = query.gte('created_at', filters.dateRange.from)
+        }
+        if (filters.dateRange?.to) {
+          query = query.lte('created_at', filters.dateRange.to)
+        }
+
+        // Apply custom field filters
+        if (filters.customFilters) {
+          Object.entries(filters.customFilters).forEach(([key, value]) => {
+            if (value !== null && value !== undefined && value !== '') {
+              query = query.eq(`custom_fields->>${key}`, value)
+            }
+          })
+        }
+
+        // Fetch batch
+        const { data, error } = await query.range(from, from + pageSize - 1)
+
+        if (error) throw error
+        if (!data || data.length === 0) break
+
+        leadIds.push(...data.map((lead: any) => lead.id))
+        console.log(`📦 Fetched ${data.length} IDs (total: ${leadIds.length}/${count})`)
+
+        if (data.length < pageSize) break
+        from += pageSize
       }
 
-      // Apply custom field filters
-      if (filters.customFilters) {
-        Object.entries(filters.customFilters).forEach(([key, value]) => {
-          if (value !== null && value !== undefined && value !== '') {
-            query = query.eq(`custom_fields->>${key}`, value)
-          }
-        })
-      }
-
-      // Limit to requested count
-      query = query.limit(Math.min(count, 10000))
-
-      const { data, error } = await query
-
-      if (error) throw error
-
-      leadIds = data?.map((lead: any) => lead.id) || []
+      // Trim to exact count
+      leadIds = leadIds.slice(0, count)
     }
 
     console.log(`📊 Found ${leadIds.length} leads to delete`)
@@ -146,23 +163,33 @@ serve(async (req) => {
       )
     }
 
-    // Delete leads
-    const { error, count: deletedCount } = await supabaseClient
-      .from('leads')
-      .delete()
-      .in('id', leadIds)
+    // Delete leads in batches to avoid URL length limits
+    const BATCH_SIZE = 500
+    let totalDeleted = 0
 
-    if (error) {
-      console.error('❌ Failed to delete leads:', error)
-      throw error
+    for (let i = 0; i < leadIds.length; i += BATCH_SIZE) {
+      const batch = leadIds.slice(i, i + BATCH_SIZE)
+      
+      const { error, count } = await supabaseClient
+        .from('leads')
+        .delete({ count: 'exact' })
+        .in('id', batch)
+
+      if (error) {
+        console.error('❌ Failed to delete batch:', error)
+        throw error
+      }
+
+      totalDeleted += count || batch.length
+      console.log(`🗑️ Deleted batch ${Math.floor(i / BATCH_SIZE) + 1}: ${count || batch.length} leads (${totalDeleted}/${leadIds.length})`)
     }
 
-    console.log(`✅ Successfully deleted ${leadIds.length} leads`)
+    console.log(`✅ Successfully deleted ${totalDeleted} leads`)
 
     return new Response(
       JSON.stringify({
         success: true,
-        deleted: leadIds.length,
+        deleted: totalDeleted,
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

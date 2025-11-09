@@ -14,61 +14,70 @@ const USE_EDGE_FUNCTION = true // Toggle to use Edge Function or client-side
 export function useBulkAssign() {
   const [loading, setLoading] = useState(false)
   const {
-    status,
-    category,
-    region,
-    searchQuery,
-    dateRange,
-    customFilters,
+    debouncedSchool: school,
+    debouncedDistrict: district,
+    debouncedGender: gender,
+    debouncedStream: stream,
+    debouncedSearchQuery: searchQuery,
+    debouncedDateRange: dateRange,
+    debouncedCustomFilters: customFilters,
   } = useFilterStore()
 
   const getFilteredLeadIds = async (limit: number): Promise<string[]> => {
     try {
-      // Build the same query as useLeads but only get IDs
-      // IMPORTANT: No pagination limit here - we want ALL filtered leads
-      let query = supabase
-        .from('leads')
-        .select('id')
-        .order('created_at', { ascending: false })
+      console.log(`🔍 Fetching ${limit} lead IDs with filters...`)
+      
+      const allIds: string[] = []
+      let from = 0
+      const pageSize = 1000
+      
+      while (allIds.length < limit) {
+        // Build query for each batch
+        let query = supabase
+          .from('leads')
+          .select('id')
+          .order('created_at', { ascending: false })
 
-      // Apply filters
-      if (status.length > 0) {
-        query = query.in('status', status)
-      }
-      if (category.length > 0) {
-        query = query.in('category', category)
-      }
-      if (region.length > 0) {
-        query = query.in('region', region)
-      }
-      if (searchQuery.trim()) {
-        query = query.or(
-          `name.ilike.%${searchQuery}%,phone.ilike.%${searchQuery}%`
-        )
-      }
-      if (dateRange.from) {
-        query = query.gte('created_at', dateRange.from.toISOString())
-      }
-      if (dateRange.to) {
-        query = query.lte('created_at', dateRange.to.toISOString())
-      }
-
-      // Apply custom field filters
-      Object.entries(customFilters).forEach(([key, value]) => {
-        if (value !== null && value !== undefined && value !== '') {
-          query = query.eq(`custom_fields->>${key}`, value)
+        // Apply filters
+        if (school.length > 0) query = query.in('school', school)
+        if (district.length > 0) query = query.in('district', district)
+        if (gender.length > 0) query = query.in('gender', gender)
+        if (stream.length > 0) query = query.in('stream', stream)
+        
+        if (searchQuery.trim()) {
+          query = query.or(`name.ilike.%${searchQuery}%,phone.ilike.%${searchQuery}%`)
         }
-      })
+        
+        if (dateRange.from) {
+          query = query.gte('created_at', dateRange.from.toISOString())
+        }
+        if (dateRange.to) {
+          query = query.lte('created_at', dateRange.to.toISOString())
+        }
 
-      // Limit to requested count (but fetch from ALL filtered results)
-      query = query.limit(Math.min(limit, 10000)) // Safety limit of 10k
+        // Apply custom field filters
+        Object.entries(customFilters).forEach(([key, value]) => {
+          if (value !== null && value !== undefined && value !== '') {
+            query = query.eq(`custom_fields->>${key}`, value)
+          }
+        })
 
-      const { data, error } = await query
+        // Fetch batch
+        const { data, error } = await query.range(from, from + pageSize - 1)
 
-      if (error) throw error
+        if (error) throw error
+        if (!data || data.length === 0) break
 
-      console.log(`✅ Fetched ${data?.length} lead IDs for bulk operation`)
-      return data?.map((lead) => lead.id) || []
+        allIds.push(...data.map(lead => lead.id))
+        console.log(`📦 Fetched ${data.length} IDs (total: ${allIds.length}/${limit})`)
+        
+        if (data.length < pageSize) break // No more data
+        from += pageSize
+      }
+
+      const finalIds = allIds.slice(0, limit)
+      console.log(`✅ Fetched ${finalIds.length} lead IDs for bulk operation`)
+      return finalIds
     } catch (err) {
       console.error('Failed to get filtered lead IDs:', err)
       throw err
@@ -87,6 +96,31 @@ export function useBulkAssign() {
         throw new Error('Not authenticated')
       }
 
+      const payload = {
+        filters: {
+          school,
+          district,
+          gender,
+          stream,
+          searchQuery,
+          dateRange: {
+            from: dateRange.from?.toISOString() || null,
+            to: dateRange.to?.toISOString() || null,
+          },
+          customFilters,
+        },
+        assignments,
+        totalCount,
+        selectedIds,
+      }
+
+      console.log('📤 Sending bulk assign request:', {
+        assignmentsCount: assignments.length,
+        totalCount,
+        hasSelectedIds: !!selectedIds,
+        payload: JSON.stringify(payload).substring(0, 200) + '...',
+      })
+
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/bulk-assign-leads`,
         {
@@ -95,25 +129,14 @@ export function useBulkAssign() {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${session.access_token}`,
           },
-          body: JSON.stringify({
-            filters: {
-              status,
-              category,
-              region,
-              searchQuery,
-              dateRange,
-              customFilters,
-            },
-            assignments,
-            totalCount,
-            selectedIds,
-          }),
+          body: JSON.stringify(payload),
         }
       )
 
       if (!response.ok) {
         const error = await response.json()
-        throw new Error(error.error || 'Assignment failed')
+        console.error('❌ Edge function error response:', error)
+        throw new Error(error.details || error.error || 'Assignment failed')
       }
 
       const result = await response.json()
@@ -154,11 +177,13 @@ export function useBulkAssign() {
         if (leadsToAssign.length === 0) break
 
         // Bulk update using Supabase
+        const now = new Date().toISOString()
         const { error } = await supabase
           .from('leads')
           .update({ 
             assigned_to: assignment.userId,
-            updated_at: new Date().toISOString()
+            assignment_date: now,
+            updated_at: now
           })
           .in('id', leadsToAssign)
 
