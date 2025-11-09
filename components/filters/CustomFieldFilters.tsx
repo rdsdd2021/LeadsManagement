@@ -121,11 +121,12 @@ export function CustomFieldFilters() {
   }
 
   if (customFields.length === 0) {
-    return null
+    return null // Don't show anything if no custom fields are defined
   }
 
   return (
     <>
+      <Separator />
       {customFields.map((field, index) => {
         const options = getFieldOptions(field)
         

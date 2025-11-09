@@ -90,12 +90,66 @@ export async function POST(request: NextRequest) {
       return counts
     }
 
+    // Fetch custom field counts
+    const fetchCustomFieldCounts = async () => {
+      const customFieldCounts: Record<string, Record<string, number>> = {}
+      
+      // Fetch all leads with custom fields
+      let query = supabaseServer.from('leads').select('custom_fields')
+      
+      // Apply all filters
+      if (school.length > 0) query = query.in('school', school)
+      if (district.length > 0) query = query.in('district', district)
+      if (gender.length > 0) query = query.in('gender', gender)
+      if (stream.length > 0) query = query.in('stream', stream)
+      if (searchQuery && searchQuery.trim()) {
+        query = query.or(`name.ilike.%${searchQuery}%,phone.ilike.%${searchQuery}%`)
+      }
+      if (dateRange?.from) query = query.gte('created_at', dateRange.from)
+      if (dateRange?.to) query = query.lte('created_at', dateRange.to)
+      
+      // Fetch in chunks
+      let from = 0
+      const pageSize = 1000
+      let hasMore = true
+      
+      while (hasMore) {
+        const { data, error } = await query.range(from, from + pageSize - 1)
+        
+        if (error) break
+        
+        if (data && data.length > 0) {
+          data.forEach((row: any) => {
+            if (row.custom_fields && typeof row.custom_fields === 'object') {
+              Object.entries(row.custom_fields).forEach(([key, value]) => {
+                if (value && String(value).trim() !== '') {
+                  if (!customFieldCounts[key]) {
+                    customFieldCounts[key] = {}
+                  }
+                  const strValue = String(value)
+                  customFieldCounts[key][strValue] = (customFieldCounts[key][strValue] || 0) + 1
+                }
+              })
+            }
+          })
+          
+          from += pageSize
+          hasMore = data.length === pageSize
+        } else {
+          hasMore = false
+        }
+      }
+      
+      return customFieldCounts
+    }
+
     // Fetch all field counts in parallel
-    const [schoolCounts, districtCounts, genderCounts, streamCounts] = await Promise.all([
+    const [schoolCounts, districtCounts, genderCounts, streamCounts, customFieldCounts] = await Promise.all([
       fetchFieldCounts('school', 'school'),
       fetchFieldCounts('district', 'district'),
       fetchFieldCounts('gender', 'gender'),
       fetchFieldCounts('stream', 'stream'),
+      fetchCustomFieldCounts(),
     ])
 
     const duration = Date.now() - startTime
@@ -104,6 +158,7 @@ export async function POST(request: NextRequest) {
       districtCount: Object.keys(districtCounts).length,
       genderCount: Object.keys(genderCounts).length,
       streamCount: Object.keys(streamCounts).length,
+      customFieldsCount: Object.keys(customFieldCounts).length,
     })
 
     return NextResponse.json({
@@ -111,7 +166,7 @@ export async function POST(request: NextRequest) {
       district: districtCounts,
       gender: genderCounts,
       stream: streamCounts,
-      customFields: {},
+      customFields: customFieldCounts,
     }, {
       headers: {
         'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
