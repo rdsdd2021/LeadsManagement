@@ -74,6 +74,16 @@ npm run dev
 
 Navigate to `/login` to access the login page. Use your Supabase credentials to sign in.
 
+**Default Admin Credentials:**
+- Email: `rds2197@gmail.com`
+- Password: `B@ssDr0p`
+
+After successful login, you'll be redirected to the dashboard where you can see:
+- Your email and role badge in the header
+- Full access to leads management
+- Real-time data updates
+- Advanced filtering options
+
 ### User Roles
 
 The system supports four roles with hierarchical permissions:
