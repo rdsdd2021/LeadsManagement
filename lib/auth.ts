@@ -56,17 +56,39 @@ export async function signOut() {
 }
 
 export async function getCurrentUser(): Promise<AuthUser | null> {
-  const { data: { user } } = await supabase.auth.getUser()
-  
-  if (!user) return null
+  try {
+    // First check if we have a session
+    const { data: { session } } = await supabase.auth.getSession()
+    
+    if (!session) {
+      console.log('⚠️ No active session')
+      return null
+    }
 
-  const role = await getUserRole(user.id)
-  
-  return {
-    id: user.id,
-    email: user.email!,
-    role,
-    metadata: user.user_metadata
+    // Then get the user
+    const { data: { user }, error } = await supabase.auth.getUser()
+    
+    if (error) {
+      console.error('❌ Error getting user:', error.message)
+      return null
+    }
+    
+    if (!user) {
+      console.log('⚠️ No user found')
+      return null
+    }
+
+    const role = await getUserRole(user.id)
+    
+    return {
+      id: user.id,
+      email: user.email!,
+      role,
+      metadata: user.user_metadata
+    }
+  } catch (error) {
+    console.error('❌ getCurrentUser failed:', error)
+    return null
   }
 }
 

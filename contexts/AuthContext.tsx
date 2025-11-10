@@ -38,12 +38,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('🔐 Auth state changed:', event)
+        
         if (event === 'SIGNED_IN' && session) {
           await checkUser()
         } else if (event === 'SIGNED_OUT') {
           setUser(null)
           setLoading(false)
           router.push('/login')
+        } else if (event === 'TOKEN_REFRESHED') {
+          console.log('🔄 Token refreshed successfully')
+          await checkUser()
+        } else if (event === 'USER_UPDATED') {
+          console.log('👤 User updated')
+          await checkUser()
         }
       }
     )
@@ -58,8 +65,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('🔍 Checking user...')
       const currentUser = await getCurrentUser()
-      console.log('✅ User check complete:', currentUser?.email || 'No user')
-      setUser(currentUser)
+      
+      if (currentUser) {
+        console.log('✅ User check complete:', currentUser.email)
+        setUser(currentUser)
+      } else {
+        console.log('⚠️ No user found')
+        // Only redirect if we're not already on login page
+        if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
+          setUser(null)
+          router.push('/login')
+        }
+      }
     } catch (error) {
       console.error('❌ Error checking user:', error)
       setUser(null)
