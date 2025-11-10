@@ -1,9 +1,12 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase-browser'
 import { useFilterStore } from '@/stores/filterStore'
 import { useRealtime } from './useRealtime'
+
+// Create supabase client instance
+const supabase = createClient()
 
 export function useLeadCounts() {
   const {
