@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
           
           // Optimized: Batch process for better performance
           for (const row of data) {
-            const value = row[field]
+            const value = (row as Record<string, any>)[field]
             if (value && String(value).trim() !== '') {
               counts.set(value, (counts.get(value) || 0) + 1)
             }
