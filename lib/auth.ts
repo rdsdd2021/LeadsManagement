@@ -1,4 +1,7 @@
-import { supabase } from './supabase'
+import { createClient } from './supabase-browser'
+
+// Create a client instance for auth operations
+const supabase = createClient()
 
 // User roles for RBAC
 export enum UserRole {

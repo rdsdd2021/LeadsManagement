@@ -1,9 +1,12 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase-browser'
 import { useRealtime } from './useRealtime'
 import { useFilterStore } from '@/stores/filterStore'
+
+// Create supabase client instance
+const supabase = createClient()
 
 interface Lead {
   // System fields
@@ -69,7 +72,7 @@ export function useLeads(showOnlyAssigned: boolean = false) {
     queryKey,
     queryFn: async () => {
       const startTime = Date.now()
-      console.log('🔍 Fetching leads via API with filters:', {
+      console.log('🔍 Fetching leads (standard mode) with filters:', {
         school: school.length,
         district: district.length,
         gender: gender.length,
@@ -80,42 +83,83 @@ export function useLeads(showOnlyAssigned: boolean = false) {
       })
 
       try {
-        // Use server-side API for better performance and reliability
-        const response = await fetch('/api/leads', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            school,
-            district,
-            gender,
-            stream,
-            searchQuery,
-            dateRange: {
-              from: dateRange.from?.toISOString(),
-              to: dateRange.to?.toISOString(),
-            },
-            customFilters,
-            page,
-            pageSize,
-            showOnlyAssigned,
-          }),
-        })
+        // Get current user
+        const { data: { user } } = await supabase.auth.getUser()
 
-        if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.details || 'Failed to fetch leads')
+        // Start building the query with user join
+        let query = supabase
+          .from('leads')
+          .select(`
+            *,
+            assigned_user:users!assigned_to(id, email, name)
+          `, { count: 'exact' })
+          .order('created_at', { ascending: false })
+
+        // Check if user is admin - non-admins see only their assigned leads
+        if (user) {
+          const { data: userData } = await supabase
+            .from('users')
+            .select('role')
+            .eq('id', user.id)
+            .single()
+
+          // Non-admins see only their assigned leads
+          if (userData?.role !== 'admin') {
+            query = query.eq('assigned_to', user.id)
+          }
         }
 
-        const result = await response.json()
-        
+        // Apply filters
+        if (school.length > 0) {
+          query = query.in('school', school)
+        }
+        if (district.length > 0) {
+          query = query.in('district', district)
+        }
+        if (gender.length > 0) {
+          query = query.in('gender', gender)
+        }
+        if (stream.length > 0) {
+          query = query.in('stream', stream)
+        }
+        if (searchQuery.trim()) {
+          query = query.or(
+            `name.ilike.%${searchQuery}%,phone.ilike.%${searchQuery}%`
+          )
+        }
+        if (dateRange.from) {
+          query = query.gte('created_at', dateRange.from.toISOString())
+        }
+        if (dateRange.to) {
+          query = query.lte('created_at', dateRange.to.toISOString())
+        }
+
+        // Apply custom field filters
+        Object.entries(customFilters).forEach(([key, value]) => {
+          if (value !== null && value !== undefined && value !== '') {
+            query = query.eq(`custom_fields->>${key}`, value)
+          }
+        })
+
+        // Apply pagination
+        const start = page * pageSize
+        const end = start + pageSize - 1
+        query = query.range(start, end)
+
+        // Execute query
+        const { data, error, count } = await query
+
+        if (error) {
+          console.error('❌ Error fetching leads:', error)
+          throw error
+        }
+
         const duration = Date.now() - startTime
-        console.log(`✅ Fetched leads in ${duration}ms:`, result.data?.length, 'of', result.count)
+        console.log(`✅ Fetched leads in ${duration}ms:`, data?.length, 'of', count)
 
         return {
-          data: result.data as Lead[],
-          count: result.count || 0,
+          data: data as Lead[],
+          count: count || 0,
         }
       } catch (error) {
         const duration = Date.now() - startTime

@@ -5,6 +5,7 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { useState, createContext, useContext } from 'react'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { ImportProvider } from '@/contexts/ImportContext'
+import { Toaster } from '@/components/ui/sonner'
 
 // Create a context to expose queryClient
 const QueryClientContext = createContext<QueryClient | null>(null)
@@ -46,6 +47,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <AuthProvider>
           <ImportProvider>
             {children}
+            <Toaster position="top-right" richColors />
           </ImportProvider>
         </AuthProvider>
       </QueryClientContext.Provider>

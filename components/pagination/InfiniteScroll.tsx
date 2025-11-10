@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useCallback } from 'react'
 import { Loader2 } from 'lucide-react'
 
 interface InfiniteScrollProps {
@@ -17,36 +17,34 @@ export function InfiniteScroll({
   children,
 }: InfiniteScrollProps) {
   const observerTarget = useRef<HTMLDivElement>(null)
-  const [isIntersecting, setIsIntersecting] = useState(false)
+
+  const handleObserver = useCallback(
+    (entries: IntersectionObserverEntry[]) => {
+      const [target] = entries
+      if (target.isIntersecting && hasMore && !loading) {
+        console.log('🔄 Infinite scroll triggered - loading more...')
+        onLoadMore()
+      }
+    },
+    [hasMore, loading, onLoadMore]
+  )
 
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          setIsIntersecting(true)
-        }
-      },
-      { threshold: 0.1 }
-    )
+    const element = observerTarget.current
+    if (!element) return
 
-    const currentTarget = observerTarget.current
-    if (currentTarget) {
-      observer.observe(currentTarget)
-    }
+    const observer = new IntersectionObserver(handleObserver, {
+      root: null,
+      rootMargin: '100px', // Trigger 100px before reaching the element
+      threshold: 0.1,
+    })
+
+    observer.observe(element)
 
     return () => {
-      if (currentTarget) {
-        observer.unobserve(currentTarget)
-      }
+      observer.disconnect()
     }
-  }, [])
-
-  useEffect(() => {
-    if (isIntersecting && hasMore && !loading) {
-      onLoadMore()
-      setIsIntersecting(false)
-    }
-  }, [isIntersecting, hasMore, loading, onLoadMore])
+  }, [handleObserver])
 
   return (
     <>

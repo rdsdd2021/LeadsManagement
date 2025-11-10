@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseServer } from '@/lib/supabase-server'
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
 
 // In-memory cache for deduplication
 const requestCache = new Map<string, { promise: Promise<any>, timestamp: number }>()
@@ -33,32 +35,68 @@ export async function POST(request: NextRequest) {
       pageSize 
     })
 
-    // Create cache key
-    const cacheKey = JSON.stringify({ school, district, gender, stream, searchQuery, dateRange, customFilters, page, pageSize })
-    
-    // Check cache
-    const cached = requestCache.get(cacheKey)
-    if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
-      console.log('⚡ Returning cached leads')
-      const result = await cached.promise
-      return NextResponse.json(result, {
-        headers: {
-          'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30',
-          'X-Cache': 'HIT',
+    // Execute query directly (cache disabled for now to ensure role-based filtering works correctly)
+    const result = await (async () => {
+      // Create user-scoped Supabase client (respects RLS policies)
+      const cookieStore = await cookies()
+      const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          cookies: {
+            getAll() {
+              return cookieStore.getAll()
+            },
+            setAll(cookiesToSet) {
+              cookiesToSet.forEach(({ name, value, options }) =>
+                cookieStore.set(name, value, options)
+              )
+            },
+          },
         }
-      })
-    }
+      )
 
-    // Create request promise
-    const requestPromise = (async () => {
-      // Start building the query with user join
-    let query = supabaseServer
-      .from('leads')
-      .select(`
-        *,
-        assigned_user:users!assigned_to(id, email, name)
-      `, { count: 'exact' })
-      .order('created_at', { ascending: false })
+      // Get current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      
+      if (userError) {
+        console.error('❌ Error getting user:', userError)
+      }
+      
+      console.log('👤 Current user:', user?.id, user?.email)
+      
+      // Start building the query with user join (using user-scoped client)
+      let query = supabase
+        .from('leads')
+        .select(`
+          *,
+          assigned_user:users!assigned_to(id, email, name)
+        `, { count: 'exact' })
+        .order('created_at', { ascending: false })
+
+      // Check if user is admin - non-admins see only their assigned leads
+      if (user) {
+        const { data: userData, error: roleError } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', user.id)
+          .single()
+
+        if (roleError) {
+          console.error('❌ Error getting user role:', roleError)
+        }
+
+        console.log('👤 User role:', userData?.role)
+
+        if (userData?.role !== 'admin') {
+          console.log('🔒 Non-admin user - filtering by assigned_to:', user.id)
+          query = query.eq('assigned_to', user.id)
+        } else {
+          console.log('👑 Admin user - showing all leads')
+        }
+      } else {
+        console.log('⚠️ No user found in session')
+      }
 
     // Apply filters
     if (school.length > 0) {
@@ -127,18 +165,7 @@ export async function POST(request: NextRequest) {
       }
     })()
 
-    // Store in cache
-    requestCache.set(cacheKey, { promise: requestPromise, timestamp: Date.now() })
-    setTimeout(() => requestCache.delete(cacheKey), CACHE_TTL)
-
-    const result = await requestPromise
-
-    return NextResponse.json(result, {
-      headers: {
-        'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30',
-        'X-Cache': 'MISS',
-      }
-    })
+    return NextResponse.json(result)
   } catch (error) {
     const duration = Date.now() - startTime
     console.error(`❌ Error fetching leads after ${duration}ms:`, error)

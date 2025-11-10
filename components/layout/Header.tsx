@@ -4,8 +4,19 @@ import { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { LogOut, User, Loader2 } from 'lucide-react'
+import { LogOut, User, Loader2, Menu } from 'lucide-react'
 import { Navigation } from './Navigation'
+import { motion } from 'framer-motion'
+import { fadeInDown } from '@/lib/motion-variants'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 
 export function Header() {
   const { user, signOut } = useAuth()
@@ -38,45 +49,99 @@ export function Header() {
     }
   }
 
+  const userInitials = user.email
+    ?.split('@')[0]
+    .split('.')
+    .map(n => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2) || 'U'
+
   return (
     <>
-      <header className="border-b bg-white dark:bg-gray-950">
-        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <h1 className="text-xl font-bold">Lead Management System</h1>
-          </div>
-          
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <User className="h-4 w-4 text-gray-500" />
-              <span className="text-sm font-medium">{user.email}</span>
-              <Badge className={getRoleBadgeColor(user.role)}>
-                {user.role.replace('_', ' ').toUpperCase()}
-              </Badge>
+      <motion.header
+        initial={fadeInDown.initial}
+        animate={fadeInDown.animate}
+        className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+      >
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex h-16 items-center justify-between">
+            {/* Logo/Title */}
+            <div className="flex items-center gap-3">
+              <motion.h1 
+                className="text-xl font-bold gradient-text"
+                whileHover={{ scale: 1.02 }}
+              >
+                Lead Management
+              </motion.h1>
             </div>
             
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleSignOut}
-              disabled={isSigningOut}
-              className="gap-2"
-            >
-              {isSigningOut ? (
-                <>
+            {/* Desktop User Menu */}
+            <div className="hidden md:flex items-center gap-4">
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-muted-foreground">{user.email}</span>
+                <Badge variant="secondary" className={getRoleBadgeColor(user.role)}>
+                  {user.role.replace('_', ' ')}
+                </Badge>
+              </div>
+              
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleSignOut}
+                disabled={isSigningOut}
+                className="gap-2"
+              >
+                {isSigningOut ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Signing Out...
-                </>
-              ) : (
-                <>
-                  <LogOut className="h-4 w-4" />
-                  Sign Out
-                </>
-              )}
-            </Button>
+                ) : (
+                  <>
+                    <LogOut className="h-4 w-4" />
+                    Sign Out
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {/* Mobile User Menu */}
+            <div className="md:hidden">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback className="text-xs">{userInitials}</AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>
+                    <div className="flex flex-col space-y-1">
+                      <p className="text-sm font-medium">{user.email}</p>
+                      <Badge variant="secondary" className={`${getRoleBadgeColor(user.role)} w-fit`}>
+                        {user.role.replace('_', ' ')}
+                      </Badge>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleSignOut} disabled={isSigningOut}>
+                    {isSigningOut ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Signing Out...
+                      </>
+                    ) : (
+                      <>
+                        <LogOut className="mr-2 h-4 w-4" />
+                        Sign Out
+                      </>
+                    )}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         </div>
-      </header>
+      </motion.header>
       <Navigation />
     </>
   )

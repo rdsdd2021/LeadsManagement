@@ -1,9 +1,12 @@
 'use client'
 
 import { useInfiniteQuery } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase-browser'
 import { useFilterStore } from '@/stores/filterStore'
 import { useMemo } from 'react'
+
+// Create supabase client instance
+const supabase = createClient()
 
 interface Lead {
   // System fields

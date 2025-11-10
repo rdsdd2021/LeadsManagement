@@ -4,9 +4,10 @@ import { useLeads } from '@/hooks/useLeads'
 import { useInfiniteLeads } from '@/hooks/useInfiniteLeads'
 import { FilterPanel } from '@/components/filters/FilterPanel'
 import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Header } from '@/components/layout/Header'
+import { DataTable } from '@/components/ui/data-table'
+import { motion } from 'framer-motion'
 import { useAuth } from '@/contexts/AuthContext'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
@@ -21,7 +22,6 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Pagination } from '@/components/pagination/Pagination'
 import { InfiniteScroll } from '@/components/pagination/InfiniteScroll'
 import { useFilterStore } from '@/stores/filterStore'
-import { supabase } from '@/lib/supabase'
 import { RealtimeStatus } from '@/components/debug/RealtimeStatus'
 
 export default function Home() {
@@ -84,18 +84,12 @@ export default function Home() {
     }
   }, [user, loading])
 
-  // Clear selection when data changes
+  // Clear selection when data changes (only in standard pagination mode)
   useEffect(() => {
-    setSelectedLeads(new Set())
-  }, [data])
-
-  // Refetch when switching to infinite scroll mode
-  useEffect(() => {
-    if (paginationMode === 'infinite' && !isLoadingInfinite && allLeads.length === 0) {
-      console.log('🔄 Switching to infinite mode - triggering initial fetch')
-      refetchInfinite()
+    if (paginationMode === 'standard') {
+      setSelectedLeads(new Set())
     }
-  }, [paginationMode, isLoadingInfinite, allLeads.length, refetchInfinite])
+  }, [data, paginationMode])
 
   // Show warning if query takes too long
   useEffect(() => {
@@ -115,23 +109,7 @@ export default function Home() {
 
   const isAdmin = user?.role === 'admin'
 
-  const toggleSelectAll = () => {
-    if (selectedLeads.size === data?.data.length) {
-      setSelectedLeads(new Set())
-    } else {
-      setSelectedLeads(new Set(data?.data.map((lead) => lead.id) || []))
-    }
-  }
 
-  const toggleSelectLead = (leadId: string) => {
-    const newSelected = new Set(selectedLeads)
-    if (newSelected.has(leadId)) {
-      newSelected.delete(leadId)
-    } else {
-      newSelected.add(leadId)
-    }
-    setSelectedLeads(newSelected)
-  }
 
   const handleBulkSelect = (selectedCount: number) => {
     setBulkSelectedCount(selectedCount)
@@ -254,17 +232,17 @@ export default function Home() {
 
   const togglePaginationMode = () => {
     const newMode = paginationMode === 'standard' ? 'infinite' : 'standard'
+    
+    // Clear the cache for the mode we're switching TO
+    if (newMode === 'infinite') {
+      queryClient.removeQueries({ queryKey: ['leads-infinite'] })
+    } else {
+      queryClient.removeQueries({ queryKey: ['leads'] })
+    }
+    
     setPaginationMode(newMode)
     setSelectedLeads(new Set())
     setBulkSelectedCount(0)
-    
-    // Trigger refetch when switching to infinite mode
-    if (newMode === 'infinite') {
-      // Small delay to ensure the mode is set before refetching
-      setTimeout(() => {
-        refetchInfinite()
-      }, 100)
-    }
   }
 
   const getTotalSelectedCount = () => {
@@ -298,13 +276,23 @@ export default function Home() {
       <div className="container mx-auto px-4 py-6">
         <div className="grid grid-cols-12 gap-6">
           {/* Filter Sidebar */}
-          <div className="col-span-12 lg:col-span-3">
+          <motion.div 
+            className="col-span-12 lg:col-span-3"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.3 }}
+          >
             <RealtimeStatus />
             <FilterPanel />
-          </div>
+          </motion.div>
 
           {/* Data Table */}
-          <div className="col-span-12 lg:col-span-9">
+          <motion.div 
+            className="col-span-12 lg:col-span-9"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.1 }}
+          >
             <Card>
               <CardContent className="p-6">
                 {isDataLoading && paginationMode === 'standard' ? (
@@ -408,207 +396,123 @@ export default function Home() {
                     )}
 
                     {/* Table Container */}
-                    <div className="overflow-x-auto">
-                      {paginationMode === 'infinite' ? (
-                        <InfiniteScroll
-                          onLoadMore={fetchNextPage}
-                          hasMore={hasNextPage || false}
-                          loading={isFetchingNextPage}
-                        >
-                          <table className="w-full">
-                            <thead className="bg-gray-50 border-y sticky top-0">
-                              <tr>
-                                {isAdmin && (
-                                  <th className="px-4 py-3 text-left w-12">
-                                    <button
-                                      onClick={toggleSelectAll}
-                                      className="hover:bg-gray-200 rounded p-1"
-                                    >
-                                      {selectedLeads.size === leads.length ? (
-                                        <CheckSquare className="h-4 w-4" />
-                                      ) : (
-                                        <Square className="h-4 w-4" />
-                                      )}
-                                    </button>
-                                  </th>
-                                )}
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                  Name
-                                </th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                  Phone Number
-                                </th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                  School
-                                </th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                  District
-                                </th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                  Gender
-                                </th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                  Stream
-                                </th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                  Assigned To
-                                </th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                  Assignment Date
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-200">
-                              {leads.map((lead) => (
-                                <tr key={lead.id} className="hover:bg-gray-50">
-                                  {isAdmin && (
-                                    <td className="px-4 py-3">
-                                      <button
-                                        onClick={() => toggleSelectLead(lead.id)}
-                                        className="hover:bg-gray-200 rounded p-1"
-                                      >
-                                        {selectedLeads.has(lead.id) ? (
-                                          <CheckSquare className="h-4 w-4 text-blue-600" />
-                                        ) : (
-                                          <Square className="h-4 w-4" />
-                                        )}
-                                      </button>
-                                    </td>
-                                  )}
-                                  <td className="px-4 py-3 text-sm font-medium">
-                                    {lead.name}
-                                  </td>
-                                  <td className="px-4 py-3 text-sm text-gray-600">
-                                    {lead.phone || '-'}
-                                  </td>
-                                  <td className="px-4 py-3 text-sm text-gray-600">
-                                    {lead.school || '-'}
-                                  </td>
-                                  <td className="px-4 py-3 text-sm text-gray-600">
-                                    {lead.district || '-'}
-                                  </td>
-                                  <td className="px-4 py-3 text-sm text-gray-600">
-                                    {lead.gender || '-'}
-                                  </td>
-                                  <td className="px-4 py-3 text-sm text-gray-600">
-                                    {lead.stream || '-'}
-                                  </td>
-                                  <td className="px-4 py-3 text-sm text-gray-600">
-                                    {lead.assigned_user ? (
-                                      <span className="font-medium">{lead.assigned_user.name || lead.assigned_user.email}</span>
-                                    ) : (
-                                      <span className="text-gray-400">Unassigned</span>
-                                    )}
-                                  </td>
-                                  <td className="px-4 py-3 text-sm text-gray-600">
-                                    {lead.assignment_date ? new Date(lead.assignment_date).toLocaleDateString() : '-'}
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </InfiniteScroll>
-                      ) : (
-                        <table className="w-full">
-                          <thead className="bg-gray-50 border-y">
-                            <tr>
-                              {isAdmin && (
-                                <th className="px-4 py-3 text-left w-12">
-                                  <button
-                                    onClick={toggleSelectAll}
-                                    className="hover:bg-gray-200 rounded p-1"
-                                  >
-                                    {selectedLeads.size === leads.length ? (
-                                      <CheckSquare className="h-4 w-4" />
-                                    ) : (
-                                      <Square className="h-4 w-4" />
-                                    )}
-                                  </button>
-                                </th>
-                              )}
-                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                Name
-                              </th>
-                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                Phone Number
-                              </th>
-                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                School
-                              </th>
-                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                District
-                              </th>
-                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                Gender
-                              </th>
-                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                Stream
-                              </th>
-                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                Assigned To
-                              </th>
-                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                Assignment Date
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-200">
-                            {leads.map((lead) => (
-                              <tr key={lead.id} className="hover:bg-gray-50">
-                                {isAdmin && (
-                                  <td className="px-4 py-3">
-                                    <button
-                                      onClick={() => toggleSelectLead(lead.id)}
-                                      className="hover:bg-gray-200 rounded p-1"
-                                    >
-                                      {selectedLeads.has(lead.id) ? (
-                                        <CheckSquare className="h-4 w-4 text-blue-600" />
-                                      ) : (
-                                        <Square className="h-4 w-4" />
-                                      )}
-                                    </button>
-                                  </td>
-                                )}
-                                <td className="px-4 py-3 text-sm font-medium">
-                                  {lead.name}
-                                </td>
-                                <td className="px-4 py-3 text-sm text-gray-600">
-                                  {lead.phone || '-'}
-                                </td>
-                                <td className="px-4 py-3 text-sm text-gray-600">
-                                  {lead.school || '-'}
-                                </td>
-                                <td className="px-4 py-3 text-sm text-gray-600">
-                                  {lead.district || '-'}
-                                </td>
-                                <td className="px-4 py-3 text-sm text-gray-600">
-                                  {lead.gender || '-'}
-                                </td>
-                                <td className="px-4 py-3 text-sm text-gray-600">
-                                  {lead.stream || '-'}
-                                </td>
-                                <td className="px-4 py-3 text-sm text-gray-600">
-                                  {lead.assigned_user ? (
-                                    <span className="font-medium">{lead.assigned_user.name || lead.assigned_user.email}</span>
-                                  ) : (
-                                    <span className="text-gray-400">Unassigned</span>
-                                  )}
-                                </td>
-                                <td className="px-4 py-3 text-sm text-gray-600">
-                                  {lead.assignment_date ? new Date(lead.assignment_date).toLocaleDateString() : '-'}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      )}
-
-                      {leads.length === 0 && (
-                        <div className="text-center py-12 text-muted-foreground">
-                          No leads found. Try adjusting your filters.
-                        </div>
-                      )}
-                    </div>
+                    {paginationMode === 'infinite' ? (
+                      <InfiniteScroll
+                        onLoadMore={fetchNextPage}
+                        hasMore={hasNextPage || false}
+                        loading={isFetchingNextPage}
+                      >
+                        <DataTable
+                          data={leads}
+                          keyExtractor={(lead: any) => lead.id}
+                          selectable={isAdmin}
+                          selectedIds={selectedLeads}
+                          onSelectionChange={setSelectedLeads}
+                          columns={[
+                            {
+                              key: 'name',
+                              header: 'Name',
+                              render: (lead: any) => <span className="font-medium">{lead.name}</span>
+                            },
+                            {
+                              key: 'phone',
+                              header: 'Phone Number',
+                              render: (lead: any) => lead.phone || '-'
+                            },
+                            {
+                              key: 'school',
+                              header: 'School',
+                              render: (lead: any) => lead.school || '-'
+                            },
+                            {
+                              key: 'district',
+                              header: 'District',
+                              render: (lead: any) => lead.district || '-'
+                            },
+                            {
+                              key: 'gender',
+                              header: 'Gender',
+                              render: (lead: any) => lead.gender || '-'
+                            },
+                            {
+                              key: 'stream',
+                              header: 'Stream',
+                              render: (lead: any) => lead.stream || '-'
+                            },
+                            {
+                              key: 'assigned_to',
+                              header: 'Assigned To',
+                              render: (lead: any) => lead.assigned_user ? (
+                                <span className="font-medium">{lead.assigned_user.name || lead.assigned_user.email}</span>
+                              ) : (
+                                <span className="text-gray-400">Unassigned</span>
+                              )
+                            },
+                            {
+                              key: 'assignment_date',
+                              header: 'Assignment Date',
+                              render: (lead: any) => lead.assignment_date ? new Date(lead.assignment_date).toLocaleDateString() : '-'
+                            }
+                          ]}
+                          emptyMessage="No leads found. Try adjusting your filters."
+                        />
+                      </InfiniteScroll>
+                    ) : (
+                      <DataTable
+                        data={leads}
+                        keyExtractor={(lead: any) => lead.id}
+                        selectable={isAdmin}
+                        selectedIds={selectedLeads}
+                        onSelectionChange={setSelectedLeads}
+                        columns={[
+                          {
+                            key: 'name',
+                            header: 'Name',
+                            render: (lead: any) => <span className="font-medium">{lead.name}</span>
+                          },
+                          {
+                            key: 'phone',
+                            header: 'Phone Number',
+                            render: (lead: any) => lead.phone || '-'
+                          },
+                          {
+                            key: 'school',
+                            header: 'School',
+                            render: (lead: any) => lead.school || '-'
+                          },
+                          {
+                            key: 'district',
+                            header: 'District',
+                            render: (lead: any) => lead.district || '-'
+                          },
+                          {
+                            key: 'gender',
+                            header: 'Gender',
+                            render: (lead: any) => lead.gender || '-'
+                          },
+                          {
+                            key: 'stream',
+                            header: 'Stream',
+                            render: (lead: any) => lead.stream || '-'
+                          },
+                          {
+                            key: 'assigned_to',
+                            header: 'Assigned To',
+                            render: (lead: any) => lead.assigned_user ? (
+                              <span className="font-medium">{lead.assigned_user.name || lead.assigned_user.email}</span>
+                            ) : (
+                              <span className="text-gray-400">Unassigned</span>
+                            )
+                          },
+                          {
+                            key: 'assignment_date',
+                            header: 'Assignment Date',
+                            render: (lead: any) => lead.assignment_date ? new Date(lead.assignment_date).toLocaleDateString() : '-'
+                          }
+                        ]}
+                        emptyMessage="No leads found. Try adjusting your filters."
+                      />
+                    )}
 
                     {/* Pagination Controls (Bottom) - Only for standard mode */}
                     {paginationMode === 'standard' && count > 0 && (
@@ -626,7 +530,7 @@ export default function Home() {
                 )}
               </CardContent>
             </Card>
-          </div>
+          </motion.div>
         </div>
       </div>
 

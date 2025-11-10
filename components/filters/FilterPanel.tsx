@@ -14,6 +14,7 @@ import { useLeadCounts } from '@/hooks/useLeadCounts'
 import { useFilterValueCounts } from '@/hooks/useFilterValueCounts'
 import { useUniqueValues } from '@/hooks/useUniqueValues'
 import { Filter, X } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 
 export function FilterPanel() {
   const {
@@ -136,12 +137,19 @@ export function FilterPanel() {
         </div>
 
         {/* Show loading indicator when filters are being applied */}
-        {hasUnappliedChanges && (
-          <div className="flex items-center justify-center gap-2 mt-3 text-sm text-muted-foreground">
-            <div className="h-3 w-3 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
-            <span>Applying filters...</span>
-          </div>
-        )}
+        <AnimatePresence>
+          {hasUnappliedChanges && (
+            <motion.div 
+              className="flex items-center justify-center gap-2 mt-3 text-sm text-muted-foreground"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+            >
+              <div className="h-3 w-3 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
+              <span>Applying filters...</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </CardHeader>
 
       <Separator />

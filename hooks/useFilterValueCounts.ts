@@ -29,7 +29,7 @@ export function useFilterValueCounts() {
   const query = useQuery({
     queryKey,
     queryFn: async () => {
-      console.log('🔍 Fetching filter counts from optimized API...')
+      console.log('🔍 Fetching filter counts from optimized API (with role filtering)...')
 
       const response = await fetch('/api/filter-counts', {
         method: 'POST',
