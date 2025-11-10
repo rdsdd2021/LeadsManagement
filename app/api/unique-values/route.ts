@@ -103,7 +103,9 @@ export async function GET(request: NextRequest) {
     // Clean up old cache entries (keep only last 100 users)
     if (userCache.size > 100) {
       const oldestKey = userCache.keys().next().value
-      userCache.delete(oldestKey)
+      if (oldestKey) {
+        userCache.delete(oldestKey)
+      }
     }
 
     const duration = Date.now() - startTime

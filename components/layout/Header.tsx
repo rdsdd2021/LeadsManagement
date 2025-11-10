@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { LogOut, User, Loader2, Menu } from 'lucide-react'
 import { Navigation } from './Navigation'
+import { ThemeToggle } from '@/components/theme/ThemeToggle'
 import { motion } from 'framer-motion'
 import { fadeInDown } from '@/lib/motion-variants'
 import {
@@ -85,6 +86,8 @@ export function Header() {
                 </Badge>
               </div>
               
+              <ThemeToggle />
+              
               <Button
                 variant="ghost"
                 size="sm"
@@ -104,7 +107,8 @@ export function Header() {
             </div>
 
             {/* Mobile User Menu */}
-            <div className="md:hidden">
+            <div className="md:hidden flex items-center gap-2">
+              <ThemeToggle />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon">

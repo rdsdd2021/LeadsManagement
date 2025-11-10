@@ -1,4 +1,5 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js'
+import { createBrowserClient } from '@supabase/ssr'
+import { SupabaseClient } from '@supabase/supabase-js'
 
 let supabaseInstance: SupabaseClient | null = null
 
@@ -19,18 +20,8 @@ export function getSupabase() {
     throw new Error('Missing Supabase environment variables')
   }
 
-  supabaseInstance = createClient(supabaseUrl, supabaseAnonKey, {
-    realtime: {
-      params: {
-        eventsPerSecond: 10
-      }
-    },
-    auth: {
-      autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: true
-    }
-  })
+  // Use cookie-based client for proper SSR auth
+  supabaseInstance = createBrowserClient(supabaseUrl, supabaseAnonKey)
 
   return supabaseInstance
 }

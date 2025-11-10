@@ -11,6 +11,7 @@ import { Plus, Edit, Trash2, Loader2, FolderPlus } from 'lucide-react'
 import type { LeadBucket, CustomField } from '@/types/lead'
 import { CreateBucketDialog } from '@/components/buckets/CreateBucketDialog'
 import { AddFieldDialog } from '@/components/buckets/AddFieldDialog'
+import { EditFieldDialog } from '@/components/buckets/EditFieldDialog'
 
 export default function ManageBucketsPage() {
   const { user, loading: authLoading } = useAuth()
@@ -21,6 +22,8 @@ export default function ManageBucketsPage() {
   const [loading, setLoading] = useState(true)
   const [showCreateBucket, setShowCreateBucket] = useState(false)
   const [showAddField, setShowAddField] = useState(false)
+  const [showEditField, setShowEditField] = useState(false)
+  const [editingField, setEditingField] = useState<CustomField | null>(null)
 
   useEffect(() => {
     // Don't do anything while auth is loading
@@ -100,6 +103,11 @@ export default function ManageBucketsPage() {
     } catch (err: any) {
       alert(`Failed to delete bucket: ${err.message}`)
     }
+  }
+
+  const handleEditField = (field: CustomField) => {
+    setEditingField(field)
+    setShowEditField(true)
   }
 
   const handleDeleteField = async (fieldId: string, fieldLabel: string) => {
@@ -263,7 +271,11 @@ export default function ManageBucketsPage() {
                             )}
                           </div>
                           <div className="flex items-center gap-2">
-                            <Button variant="outline" size="sm">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleEditField(field)}
+                            >
                               <Edit className="h-4 w-4" />
                             </Button>
                             <Button 
@@ -314,13 +326,23 @@ export default function ManageBucketsPage() {
       />
 
       {selectedBucket && (
-        <AddFieldDialog
-          open={showAddField}
-          onOpenChange={setShowAddField}
-          bucketId={selectedBucket.id}
-          bucketName={selectedBucket.name}
-          onSuccess={() => loadCustomFields(selectedBucket.id)}
-        />
+        <>
+          <AddFieldDialog
+            open={showAddField}
+            onOpenChange={setShowAddField}
+            bucketId={selectedBucket.id}
+            bucketName={selectedBucket.name}
+            onSuccess={() => loadCustomFields(selectedBucket.id)}
+          />
+          
+          <EditFieldDialog
+            open={showEditField}
+            onOpenChange={setShowEditField}
+            field={editingField}
+            bucketName={selectedBucket.name}
+            onSuccess={() => loadCustomFields(selectedBucket.id)}
+          />
+        </>
       )}
     </div>
   )

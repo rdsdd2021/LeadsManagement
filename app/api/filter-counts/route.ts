@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
         userRole,
         userId,
         userEmail: user.email,
-        userIdFromDB: userData?.id,
+        userIdFromDB: user.id,
         hasFilters: school.length > 0 || district.length > 0 || gender.length > 0 || stream.length > 0
       })
       
@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
       console.log('✅ Database function returned data:', {
         genderCount: Object.keys(data?.gender || {}).length,
         districtCount: Object.keys(data?.district || {}).length,
-        totalGenderLeads: Object.values(data?.gender || {}).reduce((a: number, b: number) => a + b, 0),
+        totalGenderLeads: (Object.values(data?.gender || {}) as number[]).reduce((a: number, b: number) => a + b, 0),
       })
 
       const duration = Date.now() - startTime

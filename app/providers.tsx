@@ -3,6 +3,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { useState, createContext, useContext } from 'react'
+import { ThemeProvider } from 'next-themes'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { ImportProvider } from '@/contexts/ImportContext'
 import { Toaster } from '@/components/ui/sonner'
@@ -44,12 +45,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <QueryClientContext.Provider value={queryClient}>
-        <AuthProvider>
-          <ImportProvider>
-            {children}
-            <Toaster position="top-right" richColors />
-          </ImportProvider>
-        </AuthProvider>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <AuthProvider>
+            <ImportProvider>
+              {children}
+              <Toaster position="top-right" richColors />
+            </ImportProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </QueryClientContext.Provider>
       {/* Dev tools - only visible in development */}
       <ReactQueryDevtools initialIsOpen={false} />
