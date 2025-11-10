@@ -10,23 +10,21 @@
 -- ============================================================================
 
 -- Function to get current user's role (cached per transaction)
-CREATE OR REPLACE FUNCTION auth.user_role()
+CREATE OR REPLACE FUNCTION public.current_user_role()
 RETURNS TEXT
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
-SET search_path = public
 AS $$
   SELECT role FROM public.users WHERE id = auth.uid();
 $$;
 
 -- Function to check if user is admin
-CREATE OR REPLACE FUNCTION auth.is_admin()
+CREATE OR REPLACE FUNCTION public.is_admin()
 RETURNS BOOLEAN
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
-SET search_path = public
 AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.users 
@@ -35,12 +33,11 @@ AS $$
 $$;
 
 -- Function to check if user is admin or manager
-CREATE OR REPLACE FUNCTION auth.is_admin_or_manager()
+CREATE OR REPLACE FUNCTION public.is_admin_or_manager()
 RETURNS BOOLEAN
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
-SET search_path = public
 AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.users 
@@ -49,9 +46,9 @@ AS $$
 $$;
 
 -- Grant execute permissions
-GRANT EXECUTE ON FUNCTION auth.user_role() TO authenticated;
-GRANT EXECUTE ON FUNCTION auth.is_admin() TO authenticated;
-GRANT EXECUTE ON FUNCTION auth.is_admin_or_manager() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.current_user_role() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_admin() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_admin_or_manager() TO authenticated;
 
 -- ============================================================================
 -- 2. OPTIMIZE LEADS TABLE POLICIES
@@ -67,31 +64,31 @@ DROP POLICY IF EXISTS "leads_delete_policy" ON public.leads;
 CREATE POLICY "leads_select_policy"
   ON public.leads FOR SELECT TO authenticated
   USING (
-    auth.is_admin_or_manager()
+    public.is_admin_or_manager()
     OR assigned_to = auth.uid()
   );
 
 CREATE POLICY "leads_insert_policy"
   ON public.leads FOR INSERT TO authenticated
   WITH CHECK (
-    auth.is_admin_or_manager()
+    public.is_admin_or_manager()
   );
 
 CREATE POLICY "leads_update_policy"
   ON public.leads FOR UPDATE TO authenticated
   USING (
-    auth.is_admin_or_manager()
+    public.is_admin_or_manager()
     OR assigned_to = auth.uid()
   )
   WITH CHECK (
-    auth.is_admin_or_manager()
+    public.is_admin_or_manager()
     OR assigned_to = auth.uid()
   );
 
 CREATE POLICY "leads_delete_policy"
   ON public.leads FOR DELETE TO authenticated
   USING (
-    auth.is_admin_or_manager()
+    public.is_admin_or_manager()
   );
 
 -- ============================================================================
@@ -102,7 +99,7 @@ DROP POLICY IF EXISTS "users_insert_admin" ON public.users;
 
 CREATE POLICY "users_insert_admin" ON public.users FOR INSERT
   TO authenticated
-  WITH CHECK (auth.is_admin());
+  WITH CHECK (public.is_admin());
 
 -- ============================================================================
 -- 4. OPTIMIZE LEAD BUCKETS POLICIES
@@ -111,7 +108,7 @@ CREATE POLICY "users_insert_admin" ON public.users FOR INSERT
 DROP POLICY IF EXISTS "buckets_all_admin" ON public.lead_buckets;
 
 CREATE POLICY "buckets_all_admin" ON public.lead_buckets FOR ALL
-  USING (auth.is_admin());
+  USING (public.is_admin());
 
 -- ============================================================================
 -- 5. OPTIMIZE CUSTOM FIELDS POLICIES
@@ -120,7 +117,7 @@ CREATE POLICY "buckets_all_admin" ON public.lead_buckets FOR ALL
 DROP POLICY IF EXISTS "custom_fields_all_admin" ON public.custom_fields;
 
 CREATE POLICY "custom_fields_all_admin" ON public.custom_fields FOR ALL
-  USING (auth.is_admin());
+  USING (public.is_admin());
 
 -- ============================================================================
 -- 6. OPTIMIZE IMPORT JOBS POLICIES
@@ -129,7 +126,7 @@ CREATE POLICY "custom_fields_all_admin" ON public.custom_fields FOR ALL
 DROP POLICY IF EXISTS "import_jobs_select_admin" ON public.import_jobs;
 
 CREATE POLICY "import_jobs_select_admin" ON public.import_jobs FOR SELECT
-  USING (auth.is_admin());
+  USING (public.is_admin());
 
 -- ============================================================================
 -- 7. ADD INDEX ON USERS.ROLE FOR FASTER LOOKUPS
