@@ -44,7 +44,7 @@ export function AddUserDialog({ open, onOpenChange, onSuccess }: AddUserDialogPr
         options: {
           data: {
             role: formData.role,
-            full_name: formData.name
+            name: formData.name
           }
         }
       })

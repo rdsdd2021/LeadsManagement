@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 interface User {
   id: string
   email: string
-  full_name: string | null
+  name: string | null
   role: string
 }
 
@@ -60,9 +60,9 @@ export function BulkAssignDialog({
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('id, email, full_name, role')
+        .select('id, email, name, role')
         .in('role', ['admin', 'manager', 'sales_rep'])
-        .order('full_name')
+        .order('name')
 
       if (!error && data) {
         setUsers(data)
@@ -212,7 +212,7 @@ export function BulkAssignDialog({
                           />
                           <div className="flex-1">
                             <p className="font-medium text-sm">
-                              {user.full_name || user.email}
+                              {user.name || user.email}
                             </p>
                             <p className="text-xs text-gray-500">{user.email}</p>
                           </div>
@@ -251,7 +251,7 @@ export function BulkAssignDialog({
                         const user = users.find((u) => u.id === d.userId)
                         return (
                           <div key={d.userId} className="flex justify-between text-sm">
-                            <span>{user?.full_name || user?.email}</span>
+                            <span>{user?.name || user?.email}</span>
                             <span className="font-medium">{d.count} leads</span>
                           </div>
                         )

@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
       .from('leads')
       .select(`
         *,
-        assigned_user:users!assigned_to(id, email, full_name)
+        assigned_user:users!assigned_to(id, email, name)
       `, { count: 'exact' })
       .order('created_at', { ascending: false })
 

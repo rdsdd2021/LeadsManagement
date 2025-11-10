@@ -475,7 +475,7 @@ export default function Home() {
                                   </td>
                                   <td className="px-4 py-3 text-sm text-gray-600">
                                     {lead.assigned_user ? (
-                                      <span className="font-medium">{lead.assigned_user.full_name || lead.assigned_user.email}</span>
+                                      <span className="font-medium">{lead.assigned_user.name || lead.assigned_user.email}</span>
                                     ) : (
                                       <span className="text-gray-400">Unassigned</span>
                                     )}
@@ -569,7 +569,7 @@ export default function Home() {
                                 </td>
                                 <td className="px-4 py-3 text-sm text-gray-600">
                                   {lead.assigned_user ? (
-                                    <span className="font-medium">{lead.assigned_user.full_name || lead.assigned_user.email}</span>
+                                    <span className="font-medium">{lead.assigned_user.name || lead.assigned_user.email}</span>
                                   ) : (
                                     <span className="text-gray-400">Unassigned</span>
                                   )}

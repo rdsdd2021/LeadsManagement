@@ -30,7 +30,7 @@ interface Lead {
   assigned_user?: {
     id: string
     email: string
-    full_name: string | null
+    name: string | null
   } | null
 }
 
@@ -73,7 +73,7 @@ export function useInfiniteLeads() {
         .from('leads')
         .select(`
           *,
-          assigned_user:users!assigned_to(id, email, full_name)
+          assigned_user:users!assigned_to(id, email, name)
         `, { count: 'exact' })
         .order('created_at', { ascending: false })
 
