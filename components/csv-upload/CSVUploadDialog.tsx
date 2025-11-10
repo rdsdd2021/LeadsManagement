@@ -10,4 +10,6 @@ import { ImportPreview } from './ImportPreview'
 import { useAuth } from '@/contexts/AuthContext'
 
 interface CSVUploadDialogProps {
-  open
+  open: boolean
+  onOpenChange?: (open: boolean) => void
+}
