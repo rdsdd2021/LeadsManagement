@@ -92,8 +92,19 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
   }
 }
 
+// Cache for user roles to avoid repeated database queries
+const roleCache = new Map<string, { role: UserRole; timestamp: number }>()
+const ROLE_CACHE_TTL = 60000 // 1 minute cache
+
 async function getUserRole(userId: string): Promise<UserRole> {
   try {
+    // Check cache first
+    const cached = roleCache.get(userId)
+    if (cached && Date.now() - cached.timestamp < ROLE_CACHE_TTL) {
+      console.log('⚡ Using cached role for user')
+      return cached.role
+    }
+
     // Add timeout to prevent hanging
     const timeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(() => reject(new Error('getUserRole timeout')), 3000)
@@ -113,10 +124,24 @@ async function getUserRole(userId: string): Promise<UserRole> {
       return UserRole.VIEWER
     }
 
-    return data.role as UserRole
+    const role = data.role as UserRole
+    
+    // Cache the result
+    roleCache.set(userId, { role, timestamp: Date.now() })
+    
+    return role
   } catch (err) {
     console.error('❌ getUserRole failed:', err)
     return UserRole.VIEWER
+  }
+}
+
+// Function to clear role cache (useful after role updates)
+export function clearRoleCache(userId?: string) {
+  if (userId) {
+    roleCache.delete(userId)
+  } else {
+    roleCache.clear()
   }
 }
 

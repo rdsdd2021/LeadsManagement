@@ -20,6 +20,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
+  const checkUserTimeoutRef = useState<NodeJS.Timeout | null>(null)[0]
+  const isCheckingRef = useState(false)[0]
 
   useEffect(() => {
     // Check active session with timeout
@@ -46,8 +48,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setLoading(false)
           router.push('/login')
         } else if (event === 'TOKEN_REFRESHED') {
-          console.log('🔄 Token refreshed successfully')
-          await checkUser()
+          console.log('🔄 Token refreshed - updating user silently')
+          // Don't call checkUser on token refresh, just update the session
+          // The user data hasn't changed, only the token
         } else if (event === 'USER_UPDATED') {
           console.log('👤 User updated')
           await checkUser()
@@ -62,26 +65,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   async function checkUser() {
+    // Prevent multiple simultaneous checks
+    if (isCheckingRef) {
+      console.log('⏭️ Skipping duplicate auth check')
+      return
+    }
+
     try {
+      isCheckingRef = true
       console.log('🔍 Checking user...')
       const currentUser = await getCurrentUser()
       
       if (currentUser) {
         console.log('✅ User check complete:', currentUser.email)
         setUser(currentUser)
+        setLoading(false)
       } else {
         console.log('⚠️ No user found')
+        setUser(null)
+        setLoading(false)
         // Only redirect if we're not already on login page
         if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
-          setUser(null)
           router.push('/login')
         }
       }
     } catch (error) {
       console.error('❌ Error checking user:', error)
       setUser(null)
-    } finally {
       setLoading(false)
+    } finally {
+      isCheckingRef = false
     }
   }
 

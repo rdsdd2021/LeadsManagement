@@ -75,10 +75,14 @@ export default function Home() {
 
   // Redirect to login if not authenticated
   useEffect(() => {
-    if (!loading && !user) {
+    // Don't redirect while still loading
+    if (loading) return
+    
+    // Only redirect if definitely not authenticated
+    if (!user) {
       router.push('/login')
     }
-  }, [user, loading, router])
+  }, [user, loading])
 
   // Clear selection when data changes
   useEffect(() => {

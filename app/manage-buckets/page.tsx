@@ -23,14 +23,24 @@ export default function ManageBucketsPage() {
   const [showAddField, setShowAddField] = useState(false)
 
   useEffect(() => {
-    if (!authLoading && !user) {
+    // Don't do anything while auth is loading
+    if (authLoading) return
+
+    // Redirect if not authenticated
+    if (!user) {
       router.push('/login')
-    } else if (user && user.role !== 'admin') {
-      router.push('/')
-    } else if (user) {
-      loadBuckets()
+      return
     }
-  }, [user, authLoading, router])
+
+    // Redirect if not admin
+    if (user.role !== 'admin') {
+      router.push('/')
+      return
+    }
+
+    // Load data only if authenticated and authorized
+    loadBuckets()
+  }, [user, authLoading])
 
   const loadBuckets = async () => {
     setLoading(true)
