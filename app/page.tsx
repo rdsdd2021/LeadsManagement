@@ -89,6 +89,14 @@ export default function Home() {
     setSelectedLeads(new Set())
   }, [data])
 
+  // Refetch when switching to infinite scroll mode
+  useEffect(() => {
+    if (paginationMode === 'infinite' && !isLoadingInfinite && allLeads.length === 0) {
+      console.log('🔄 Switching to infinite mode - triggering initial fetch')
+      refetchInfinite()
+    }
+  }, [paginationMode, isLoadingInfinite, allLeads.length, refetchInfinite])
+
   // Show warning if query takes too long
   useEffect(() => {
     if (isDataLoading) {
@@ -249,6 +257,14 @@ export default function Home() {
     setPaginationMode(newMode)
     setSelectedLeads(new Set())
     setBulkSelectedCount(0)
+    
+    // Trigger refetch when switching to infinite mode
+    if (newMode === 'infinite') {
+      // Small delay to ensure the mode is set before refetching
+      setTimeout(() => {
+        refetchInfinite()
+      }, 100)
+    }
   }
 
   const getTotalSelectedCount = () => {

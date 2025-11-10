@@ -1,15 +1,29 @@
 'use client'
 
+import { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { LogOut, User } from 'lucide-react'
+import { LogOut, User, Loader2 } from 'lucide-react'
 import { Navigation } from './Navigation'
 
 export function Header() {
   const { user, signOut } = useAuth()
+  const [isSigningOut, setIsSigningOut] = useState(false)
 
   if (!user) return null
+
+  const handleSignOut = async () => {
+    if (isSigningOut) return // Prevent multiple clicks
+    
+    setIsSigningOut(true)
+    try {
+      await signOut()
+    } catch (error) {
+      console.error('Sign out failed:', error)
+      setIsSigningOut(false)
+    }
+  }
 
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
@@ -44,11 +58,21 @@ export function Header() {
             <Button
               variant="outline"
               size="sm"
-              onClick={signOut}
+              onClick={handleSignOut}
+              disabled={isSigningOut}
               className="gap-2"
             >
-              <LogOut className="h-4 w-4" />
-              Sign Out
+              {isSigningOut ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Signing Out...
+                </>
+              ) : (
+                <>
+                  <LogOut className="h-4 w-4" />
+                  Sign Out
+                </>
+              )}
             </Button>
           </div>
         </div>

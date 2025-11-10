@@ -46,6 +46,7 @@ export function useLeads(showOnlyAssigned: boolean = false) {
     debouncedCustomFilters: customFilters,
     page,
     pageSize,
+    paginationMode,
   } = useFilterStore()
 
   const queryKey = [
@@ -125,6 +126,7 @@ export function useLeads(showOnlyAssigned: boolean = false) {
     staleTime: 30 * 1000,
     retry: 2, // Retry failed queries twice
     retryDelay: 1000, // Wait 1 second between retries
+    enabled: paginationMode === 'standard', // Only run when in standard mode
   })
 
   // Set up realtime subscription

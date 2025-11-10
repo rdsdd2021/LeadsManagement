@@ -2,9 +2,20 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
-import { useState } from 'react'
+import { useState, createContext, useContext } from 'react'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { ImportProvider } from '@/contexts/ImportContext'
+
+// Create a context to expose queryClient
+const QueryClientContext = createContext<QueryClient | null>(null)
+
+export function useQueryClientContext() {
+  const context = useContext(QueryClientContext)
+  if (!context) {
+    throw new Error('useQueryClientContext must be used within Providers')
+  }
+  return context
+}
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -31,11 +42,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <ImportProvider>
-          {children}
-        </ImportProvider>
-      </AuthProvider>
+      <QueryClientContext.Provider value={queryClient}>
+        <AuthProvider>
+          <ImportProvider>
+            {children}
+          </ImportProvider>
+        </AuthProvider>
+      </QueryClientContext.Provider>
       {/* Dev tools - only visible in development */}
       <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>

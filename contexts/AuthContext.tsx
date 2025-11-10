@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { getCurrentUser, signOut as authSignOut, hasPermission } from '@/lib/auth'
 import type { AuthUser, UserRole } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
+import { useQueryClient } from '@tanstack/react-query'
 
 interface AuthContextType {
   user: AuthUser | null
@@ -21,6 +22,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
   const router = useRouter()
   const isCheckingRef = useRef(false)
+  const queryClient = useQueryClient()
 
   useEffect(() => {
     // Check active session with timeout
@@ -38,14 +40,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('🔐 Auth state changed:', event)
+        console.log('🔐 Auth state changed:', event, 'Session:', !!session)
         
         if (event === 'SIGNED_IN' && session) {
           await checkUser()
         } else if (event === 'SIGNED_OUT') {
+          console.log('🚪 SIGNED_OUT event - clearing user and redirecting')
           setUser(null)
           setLoading(false)
-          router.push('/login')
+          // Use window.location for immediate redirect
+          if (typeof window !== 'undefined') {
+            window.location.href = '/login'
+          }
         } else if (event === 'TOKEN_REFRESHED') {
           console.log('🔄 Token refreshed - updating user silently')
           // Don't call checkUser on token refresh, just update the session
@@ -98,9 +104,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function signOut() {
-    await authSignOut()
-    setUser(null)
-    router.push('/login')
+    try {
+      console.log('🚪 Signing out...')
+      
+      // Clear React Query cache
+      console.log('🧹 Clearing React Query cache...')
+      queryClient.clear()
+      
+      // Clear all localStorage to remove persisted state
+      if (typeof window !== 'undefined') {
+        console.log('🧹 Clearing localStorage...')
+        localStorage.clear()
+        sessionStorage.clear()
+      }
+      
+      // Sign out from Supabase
+      await authSignOut()
+      
+      // Clear local state
+      setUser(null)
+      
+      // Force immediate redirect with cache busting
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login?t=' + Date.now()
+      }
+    } catch (error) {
+      console.error('❌ Sign out error:', error)
+      // Even if there's an error, clear everything and redirect
+      queryClient.clear()
+      if (typeof window !== 'undefined') {
+        localStorage.clear()
+        sessionStorage.clear()
+      }
+      setUser(null)
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login?t=' + Date.now()
+      }
+    }
   }
 
   function checkPermission(permission: string): boolean {

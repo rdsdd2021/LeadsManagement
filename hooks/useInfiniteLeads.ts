@@ -60,10 +60,12 @@ export function useInfiniteLeads() {
     },
   ]
 
+  const { paginationMode } = useFilterStore()
+
   const query = useInfiniteQuery({
     queryKey,
     queryFn: async ({ pageParam = 0 }) => {
-      console.log('🔍 Fetching leads page:', pageParam)
+      console.log('🔍 Fetching infinite leads page:', pageParam, 'Mode:', paginationMode)
 
       // Get current user
       const { data: { user } } = await supabase.auth.getUser()
@@ -136,7 +138,7 @@ export function useInfiniteLeads() {
         throw error
       }
 
-      console.log('✅ Fetched leads:', data?.length, 'of', count)
+      console.log('✅ Fetched infinite leads:', data?.length, 'of', count)
 
       return {
         data: data as Lead[],
@@ -147,6 +149,8 @@ export function useInfiniteLeads() {
     getNextPageParam: (lastPage) => lastPage.nextPage,
     initialPageParam: 0,
     staleTime: 30 * 1000,
+    refetchOnMount: true, // Always refetch when component mounts or mode changes
+    enabled: paginationMode === 'infinite', // Only run when in infinite mode
   })
 
   // Flatten all pages into a single array

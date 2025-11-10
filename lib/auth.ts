@@ -51,8 +51,17 @@ export async function signIn(email: string, password: string) {
 }
 
 export async function signOut() {
-  await supabase.auth.signOut()
-  console.log('🚪 Signed out')
+  try {
+    const { error } = await supabase.auth.signOut()
+    if (error) {
+      console.error('❌ Sign out error:', error)
+      throw error
+    }
+    console.log('🚪 Signed out successfully')
+  } catch (error) {
+    console.error('❌ Sign out failed:', error)
+    throw error
+  }
 }
 
 export async function getCurrentUser(): Promise<AuthUser | null> {

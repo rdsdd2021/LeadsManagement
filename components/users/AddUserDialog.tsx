@@ -37,19 +37,33 @@ export function AddUserDialog({ open, onOpenChange, onSuccess }: AddUserDialogPr
     setError('')
 
     try {
-      // Create auth user - the trigger will automatically create the users table entry
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          data: {
-            role: formData.role,
-            name: formData.name
-          }
-        }
+      // Get current session for authorization
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      if (!session) {
+        throw new Error('Not authenticated')
+      }
+
+      // Use admin API to create user (doesn't affect current session)
+      const response = await fetch('/api/admin/create-user', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+          name: formData.name,
+          role: formData.role
+        })
       })
 
-      if (authError) throw authError
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to create user')
+      }
 
       // Reset form
       setFormData({

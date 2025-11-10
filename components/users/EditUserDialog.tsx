@@ -97,10 +97,17 @@ export function EditUserDialog({
 
       // Update password if provided (requires admin API)
       if (password) {
+        const { data: { session } } = await supabase.auth.getSession()
+        
+        if (!session) {
+          throw new Error('Not authenticated')
+        }
+
         const response = await fetch('/api/admin/update-password', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`
           },
           body: JSON.stringify({
             userId: user.id,
