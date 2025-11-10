@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { getCurrentUser, signOut as authSignOut, hasPermission } from '@/lib/auth'
 import type { AuthUser, UserRole } from '@/lib/auth'
@@ -20,8 +20,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
-  const checkUserTimeoutRef = useState<NodeJS.Timeout | null>(null)[0]
-  const isCheckingRef = useState(false)[0]
+  const isCheckingRef = useRef(false)
 
   useEffect(() => {
     // Check active session with timeout
@@ -66,13 +65,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function checkUser() {
     // Prevent multiple simultaneous checks
-    if (isCheckingRef) {
+    if (isCheckingRef.current) {
       console.log('⏭️ Skipping duplicate auth check')
       return
     }
 
     try {
-      isCheckingRef = true
+      isCheckingRef.current = true
       console.log('🔍 Checking user...')
       const currentUser = await getCurrentUser()
       
@@ -94,7 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null)
       setLoading(false)
     } finally {
-      isCheckingRef = false
+      isCheckingRef.current = false
     }
   }
 
